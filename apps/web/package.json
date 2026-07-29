@@ -1,0 +1,28 @@
+{
+  "name": "@myvoice/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc -b && vite build",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "@myvoice/shared": "workspace:*",
+    "@tanstack/react-query": "^5.83.0",
+    "@telegram-apps/sdk-react": "^3.3.7",
+    "i18next": "^25.3.2",
+    "lucide-react": "^0.525.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-i18next": "^15.6.0",
+    "react-router-dom": "^7.7.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.7.0",
+    "vite": "^7.0.6"
+  }
+}

@@ -1,0 +1,16 @@
+:8080 {
+  encode zstd gzip
+
+  # The Mini App calls its API through the same public HTTPS origin.
+  handle_path /api/* {
+    reverse_proxy api:3000
+  }
+
+  handle /docs* {
+    reverse_proxy api:3000
+  }
+
+  handle {
+    reverse_proxy web:5173
+  }
+}

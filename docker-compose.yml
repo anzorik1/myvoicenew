@@ -1,0 +1,122 @@
+name: myvoice
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: myvoice
+      POSTGRES_USER: myvoice
+      POSTGRES_PASSWORD: myvoice
+    ports:
+      - "5432:5432"
+    volumes:
+      - myvoice_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U myvoice -d myvoice"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - myvoice_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://myvoice:myvoice@postgres:5432/myvoice?schema=public
+    command: pnpm --filter @myvoice/api prisma:migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  seed:
+    build: .
+    profiles: ["seed"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://myvoice:myvoice@postgres:5432/myvoice?schema=public
+    command: pnpm --filter @myvoice/api prisma:seed
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  api:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://myvoice:myvoice@postgres:5432/myvoice?schema=public
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "3000:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://myvoice:myvoice@postgres:5432/myvoice?schema=public
+      REDIS_URL: redis://redis:6379
+    command: pnpm --filter @myvoice/api worker
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      args:
+        VITE_API_URL: /api
+    env_file: .env
+    command: pnpm --filter @myvoice/web exec vite preview --host 0.0.0.0 --port 5173
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+
+  gateway:
+    image: caddy:2-alpine
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - api
+      - web
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    profiles: ["tunnel"]
+    command: tunnel --no-autoupdate --url http://gateway:8080
+    depends_on:
+      - gateway
+
+  bot:
+    build: .
+    profiles: ["telegram"]
+    env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379
+    command: pnpm --filter @myvoice/bot start
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  myvoice_postgres:
+  myvoice_redis:

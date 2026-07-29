@@ -1,0 +1,17 @@
+{
+  "name": "@myvoice/bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "grammy": "^1.38.1",
+    "ioredis": "^5.6.1"
+  },
+  "devDependencies": { "tsx": "^4.20.3" }
+}
