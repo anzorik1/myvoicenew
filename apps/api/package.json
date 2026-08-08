@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "nest start --watch",
     "start": "node dist/main.js",
-    "worker": "tsx src/worker.ts",
+    "worker": "node dist/worker.js",
     "build": "nest build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "jest --runInBand",

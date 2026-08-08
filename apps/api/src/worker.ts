@@ -6,6 +6,7 @@ import { AppModule } from './app.module';
 import { VOTE_QUEUE } from './jobs.service';
 import { PrismaService } from './prisma.service';
 import { VotesService } from './votes.service';
+import { singleFlight } from './worker-utils';
 
 async function bootstrap() {
   const app = await NestFactory.createApplicationContext(AppModule);
@@ -40,9 +41,15 @@ async function bootstrap() {
     });
     for (const vote of expired) await votes.complete(vote.id);
   };
-  await reconcile();
-  const timer = setInterval(() => void reconcile(), 60_000);
+  const reconcileSafely = singleFlight(reconcile, (error) => {
+    console.error('Vote reconciliation failed', error);
+  });
+  await reconcileSafely();
+  const timer = setInterval(() => void reconcileSafely(), 60_000);
+  let shuttingDown = false;
   const shutdown = async () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     clearInterval(timer);
     await worker.close();
     await connection.quit();
@@ -53,4 +60,7 @@ async function bootstrap() {
   process.on('SIGTERM', () => void shutdown());
 }
 
-void bootstrap();
+void bootstrap().catch((error) => {
+  console.error('Worker bootstrap failed', error);
+  process.exit(1);
+});
