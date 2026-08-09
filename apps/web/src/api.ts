@@ -9,6 +9,10 @@ export const setAdminToken = (token: string) => {
   adminToken = token;
   sessionStorage.setItem('myvoice_admin_token', token);
 };
+export const clearAdminToken = () => {
+  adminToken = '';
+  sessionStorage.removeItem('myvoice_admin_token');
+};
 export const hasAdminToken = () => Boolean(adminToken);
 
 export async function api<T>(path: string, options: RequestInit = {}, admin = false): Promise<T> {

@@ -12,8 +12,8 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Prisma } from '@prisma/client';
-import { verify } from 'argon2';
-import { IsEmail, IsInt, IsOptional, IsString, Length } from 'class-validator';
+import { hash, verify } from 'argon2';
+import { IsEmail, IsInt, IsOptional, IsString, Length, Matches } from 'class-validator';
 import { AdminAuthGuard, AuthRequest } from './common';
 import { JobsService } from './jobs.service';
 import { PrismaService } from './prisma.service';
@@ -25,6 +25,19 @@ class AdminLoginDto {
   @IsString()
   @Length(8, 200)
   password!: string;
+}
+
+class AdminChangePasswordDto {
+  @IsString()
+  @Length(8, 200)
+  currentPassword!: string;
+
+  @IsString()
+  @Length(12, 128)
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/, {
+    message: 'New password must include uppercase, lowercase, number, and symbol',
+  })
+  newPassword!: string;
 }
 
 class AdjustmentDto {
@@ -75,6 +88,38 @@ export class AdminAuthController {
         { secret: process.env.ADMIN_JWT_SECRET, expiresIn: '30m' },
       ),
     };
+  }
+
+  @Post('change-password')
+  @UseGuards(AdminAuthGuard)
+  async changePassword(@Req() req: AuthRequest, @Body() dto: AdminChangePasswordDto) {
+    const admin = await this.prisma.adminUser.findUniqueOrThrow({
+      where: { id: req.adminId! },
+    });
+    if (!(await verify(admin.passwordHash, dto.currentPassword))) {
+      throw new BadRequestException('Current password is incorrect');
+    }
+    if (await verify(admin.passwordHash, dto.newPassword)) {
+      throw new BadRequestException('New password must be different');
+    }
+
+    const passwordHash = await hash(dto.newPassword);
+    await this.prisma.$transaction([
+      this.prisma.adminUser.update({
+        where: { id: admin.id },
+        data: { passwordHash },
+      }),
+      this.prisma.adminAuditLog.create({
+        data: {
+          adminId: admin.id,
+          action: 'ADMIN_PASSWORD_CHANGE',
+          entityType: 'AdminUser',
+          entityId: admin.id,
+          after: { changed: true },
+        },
+      }),
+    ]);
+    return { changed: true };
   }
 }
 

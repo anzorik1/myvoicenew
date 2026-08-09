@@ -17,7 +17,8 @@ async function main() {
   const adminPassword = process.env.ADMIN_SEED_PASSWORD ?? 'ChangeMe123!';
   const admin = await prisma.adminUser.upsert({
     where: { email: process.env.ADMIN_SEED_EMAIL ?? 'admin@myvoice.local' },
-    update: { passwordHash: await hash(adminPassword) },
+    // Never reset a password that an administrator changed after initial provisioning.
+    update: {},
     create: {
       id: IDS.admin,
       email: process.env.ADMIN_SEED_EMAIL ?? 'admin@myvoice.local',

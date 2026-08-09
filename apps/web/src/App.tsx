@@ -10,6 +10,7 @@ import {
   Home as HomeIcon,
   Languages,
   Lightbulb,
+  ShieldCheck,
   Send,
   UserRound,
   UsersRound,
@@ -19,7 +20,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { api, hasAdminToken, setAccessToken, setAdminToken } from './api';
+import { api, clearAdminToken, hasAdminToken, setAccessToken, setAdminToken } from './api';
 import { hapticSuccess, telegramInitData } from './telegram';
 import styles from './App.module.css';
 
@@ -495,13 +496,43 @@ function AdminApp() {
 }
 
 function AdminDashboard() {
-  const [tab, setTab] = useState<'metrics' | 'users' | 'votes' | 'suggestions'>('metrics');
+  const [tab, setTab] = useState<'metrics' | 'users' | 'votes' | 'suggestions' | 'security'>('metrics');
   const metrics = useQuery({ queryKey: ['admin-metrics'], queryFn: () => api<Record<string, number>>('/admin/metrics', {}, true) });
   const users = useQuery({ queryKey: ['admin-users'], queryFn: () => api<{ items: Array<Record<string, any>> }>('/admin/users', {}, true) });
   const votes = useQuery({ queryKey: ['admin-votes'], queryFn: () => api<any[]>('/admin/votes', {}, true) });
   const suggestions = useQuery({ queryKey: ['admin-suggestions'], queryFn: () => api<any[]>('/admin/suggestions', {}, true) });
   const labels: Record<string, string> = { totalUsers: 'Registered users', active1d: 'Active · 24h', active7d: 'Active · 7 days', active30d: 'Active · 30 days', currentVoteParticipants: 'Current participants', currentParticipationPercent: 'Participation %', activityAtLeast80: 'Activity ≥ 80%', referrals: 'Referrals', voxAwarded: 'VOX awarded', blocked: 'Blocked' };
-  return <div className={styles.admin}><aside><h1>MyVoice</h1>{(['metrics', 'users', 'votes', 'suggestions'] as const).map((value) => <button data-active={tab === value} onClick={() => setTab(value)} key={value}>{value}</button>)}</aside><main><header><span>Administration</span><strong>Secure console</strong></header>{tab === 'metrics' && <div className={styles.adminGrid}>{Object.entries(metrics.data ?? {}).map(([key, value]) => <div key={key}><span>{labels[key] ?? key}</span><strong>{value.toLocaleString()}</strong></div>)}</div>}{tab === 'users' && <div className={styles.adminTable}>{users.data?.items.map((user) => <div key={user.id}><span>{user.firstName}<small>@{user.username ?? '—'}</small></span><code>{user.telegramId}</code><strong>{user.voxBalance} VOX</strong><span>{Number(user.activityRate)}%</span><em>{user.status}</em></div>)}</div>}{tab === 'votes' && <><VoteComposer onSaved={() => void votes.refetch()} /><div className={styles.adminTable}>{votes.data?.map((vote) => <div key={vote.id}><span>{vote.translations.find((x: any) => x.language === 'en')?.title}<small>{new Date(vote.startsAt).toLocaleString()}</small></span><em>{vote.status}</em><strong>{vote.participantCount} votes</strong></div>)}</div></>}{tab === 'suggestions' && <div className={styles.adminTable}>{suggestions.data?.map((item) => <div key={item.id}><span>{item.translations[0]?.title}<small>{item.user.firstName}</small></span><em>{item.status}</em></div>)}</div>}</main></div>;
+  return <div className={styles.admin}><aside><h1>MyVoice</h1>{(['metrics', 'users', 'votes', 'suggestions', 'security'] as const).map((value) => <button data-active={tab === value} onClick={() => setTab(value)} key={value}>{value}</button>)}</aside><main><header><span>Administration</span><strong>Secure console</strong></header>{tab === 'metrics' && <div className={styles.adminGrid}>{Object.entries(metrics.data ?? {}).map(([key, value]) => <div key={key}><span>{labels[key] ?? key}</span><strong>{value.toLocaleString()}</strong></div>)}</div>}{tab === 'users' && <div className={styles.adminTable}>{users.data?.items.map((user) => <div key={user.id}><span>{user.firstName}<small>@{user.username ?? '—'}</small></span><code>{user.telegramId}</code><strong>{user.voxBalance} VOX</strong><span>{Number(user.activityRate)}%</span><em>{user.status}</em></div>)}</div>}{tab === 'votes' && <><VoteComposer onSaved={() => void votes.refetch()} /><div className={styles.adminTable}>{votes.data?.map((vote) => <div key={vote.id}><span>{vote.translations.find((x: any) => x.language === 'en')?.title}<small>{new Date(vote.startsAt).toLocaleString()}</small></span><em>{vote.status}</em><strong>{vote.participantCount} votes</strong></div>)}</div></>}{tab === 'suggestions' && <div className={styles.adminTable}>{suggestions.data?.map((item) => <div key={item.id}><span>{item.translations[0]?.title}<small>{item.user.firstName}</small></span><em>{item.status}</em></div>)}{!suggestions.data?.length && <div className={styles.adminEmpty}>No suggestions yet.</div>}</div>}{tab === 'security' && <SecurityPanel />}</main></div>;
+}
+
+function SecurityPanel() {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const changePassword = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError('');
+    const data = new FormData(event.currentTarget);
+    const currentPassword = String(data.get('currentPassword') ?? '');
+    const newPassword = String(data.get('newPassword') ?? '');
+    const confirmation = String(data.get('confirmation') ?? '');
+    if (newPassword !== confirmation) {
+      setError('New password and confirmation do not match.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await api('/admin/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ currentPassword, newPassword }),
+      }, true);
+      clearAdminToken();
+      window.location.replace('/admin');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+      setSaving(false);
+    }
+  };
+  return <section className={styles.securityPanel}><div className={styles.securityIntro}><span className={styles.securityIcon}><ShieldCheck /></span><div><small>Permanent admin address</small><code>{window.location.origin}/admin</code></div><strong><Check size={16} />HTTPS active</strong></div><div className={styles.securityContent}><div><p className={styles.eyebrow}>Access credentials</p><h2>Change administrator password</h2><p>Use a password created only for MyVoice. After the change, this browser signs out so you can verify the new password immediately.</p></div><form className={`${styles.form} ${styles.securityForm}`} onSubmit={changePassword}><label>Current password<input type="password" name="currentPassword" autoComplete="current-password" required minLength={8} maxLength={200} /></label><label>New password<input type="password" name="newPassword" autoComplete="new-password" required minLength={12} maxLength={128} /></label><label>Confirm new password<input type="password" name="confirmation" autoComplete="new-password" required minLength={12} maxLength={128} /></label><p className={styles.securityHint}>At least 12 characters with uppercase, lowercase, a number, and a symbol.</p>{error && <span className={styles.errorText} role="alert">{error}</span>}<button className={styles.primary} disabled={saving}>{saving ? 'Changing password…' : 'Change password and sign out'}</button></form></div></section>;
 }
 
 function VoteComposer({ onSaved }: { onSaved: () => void }) {
