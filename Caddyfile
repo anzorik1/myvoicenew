@@ -1,4 +1,4 @@
-:8080 {
+(myvoice_routes) {
   encode zstd gzip
 
   # The Mini App calls its API through the same public HTTPS origin.
@@ -13,4 +13,17 @@
   handle {
     reverse_proxy web:5173
   }
+}
+
+# Keep the temporary tunnel available until the custom domain is verified.
+:8080 {
+  import myvoice_routes
+}
+
+myvoice24.com {
+  import myvoice_routes
+}
+
+www.myvoice24.com {
+  redir https://myvoice24.com{uri} permanent
 }

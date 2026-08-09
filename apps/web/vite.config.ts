@@ -6,7 +6,7 @@ export default defineConfig({
   server: { port: Number(process.env.WEB_PORT ?? 5173) },
   preview: {
     host: '0.0.0.0',
-    allowedHosts: ['.trycloudflare.com'],
+    allowedHosts: ['.trycloudflare.com', 'myvoice24.com', '.myvoice24.com'],
   },
   build: { sourcemap: true },
 });

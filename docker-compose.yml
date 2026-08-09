@@ -91,6 +91,8 @@ services:
     command: pnpm --filter @myvoice/web exec vite preview --host 0.0.0.0 --port 5173
     ports:
       - "127.0.0.1:5173:5173"
+    volumes:
+      - ./apps/web/vite.config.ts:/app/apps/web/vite.config.ts:ro
     depends_on:
       - api
 
@@ -99,8 +101,13 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:8080:8080"
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - myvoice_caddy_data:/data
+      - myvoice_caddy_config:/config
     depends_on:
       - api
       - web
@@ -128,3 +135,5 @@ services:
 volumes:
   myvoice_postgres:
   myvoice_redis:
+  myvoice_caddy_data:
+  myvoice_caddy_config:
