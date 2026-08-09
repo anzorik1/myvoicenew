@@ -119,6 +119,19 @@
 .adminTable small { display: block; color: #777482; }
 .adminTable em { font-style: normal; font-size: 12px; color: #6558d9; }
 .adminEmpty { color: #74707e; }
+.adminVoteTable > div { grid-template-columns: minmax(260px, 1fr) 120px 120px 110px; }
+.deleteVoteButton { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid #e4bcbc; border-radius: 11px; color: #a12626; background: #fff8f8; font-weight: 800; }
+.deleteVoteButton:hover:not(:disabled) { color: white; background: #a12626; }
+.deleteVoteButton:disabled { cursor: not-allowed; opacity: .38; }
+.adminDialogBackdrop { position: fixed; z-index: 80; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(18,15,27,.7); backdrop-filter: blur(4px); }
+.adminDialog { width: min(100%, 470px); padding: 28px; border: 1px solid #e4dfe9; border-top: 5px solid #b83232; border-radius: 20px; background: white; box-shadow: 0 24px 70px rgba(18,15,27,.25); }
+.adminDialogIcon { width: 48px; height: 48px; display: grid; place-items: center; margin-bottom: 18px; border-radius: 15px; color: #a12626; background: #fff0f0; }
+.adminDialog h2 { margin: 5px 0 10px; font-size: 28px; letter-spacing: -.03em; }
+.adminDialog > p:not(.eyebrow) { color: #686472; line-height: 1.55; }
+.adminDialog > p strong { color: #26222f; }
+.adminDialogActions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 24px; }
+.confirmDeleteButton { min-height: 52px; border: 0; border-radius: 15px; color: white; background: #a12626; font-weight: 850; }
+.confirmDeleteButton:disabled { cursor: wait; opacity: .6; }
 .securityPanel { max-width: 980px; overflow: hidden; border: 1px solid #e3e0e9; border-radius: 20px; background: white; box-shadow: 0 18px 45px rgba(29,26,43,.07); }
 .securityIntro { display: grid; grid-template-columns: 46px minmax(0,1fr) auto; align-items: center; gap: 14px; padding: 18px 22px 18px 16px; border-left: 6px solid #8172ef; color: white; background: #1d1a2b; }
 .securityIcon { width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.16); border-radius: 14px; color: #c8c1ff; background: rgba(255,255,255,.06); }

@@ -21,7 +21,12 @@ async function bootstrap() {
       const voteId = String(job.data.voteId);
       if (job.name === 'activate') {
         await prisma.vote.updateMany({
-          where: { id: voteId, status: 'SCHEDULED', startsAt: { lte: new Date() } },
+          where: {
+            id: voteId,
+            status: 'SCHEDULED',
+            startsAt: { lte: new Date() },
+            deletedAt: null,
+          },
           data: { status: 'ACTIVE' },
         });
         return;
@@ -32,11 +37,20 @@ async function bootstrap() {
   );
   const reconcile = async () => {
     await prisma.vote.updateMany({
-      where: { status: 'SCHEDULED', startsAt: { lte: new Date() }, endsAt: { gt: new Date() } },
+      where: {
+        status: 'SCHEDULED',
+        startsAt: { lte: new Date() },
+        endsAt: { gt: new Date() },
+        deletedAt: null,
+      },
       data: { status: 'ACTIVE' },
     });
     const expired = await prisma.vote.findMany({
-      where: { status: { in: ['ACTIVE', 'SCHEDULED'] }, endsAt: { lte: new Date() } },
+      where: {
+        status: { in: ['ACTIVE', 'SCHEDULED'] },
+        endsAt: { lte: new Date() },
+        deletedAt: null,
+      },
       select: { id: true },
     });
     for (const vote of expired) await votes.complete(vote.id);

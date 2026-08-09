@@ -1,6 +1,7 @@
 import { FormEvent, ReactNode, useEffect, useState } from 'react';
 import {
   Activity,
+  AlertTriangle,
   ArrowLeft,
   BarChart3,
   Check,
@@ -12,6 +13,7 @@ import {
   Lightbulb,
   ShieldCheck,
   Send,
+  Trash2,
   UserRound,
   UsersRound,
   Vote as VoteIcon,
@@ -20,6 +22,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { createPortal } from 'react-dom';
 import { api, clearAdminToken, hasAdminToken, setAccessToken, setAdminToken } from './api';
 import { hapticSuccess, telegramInitData } from './telegram';
 import styles from './App.module.css';
@@ -63,6 +66,13 @@ type Features = {
   earlyVoteBonus: boolean;
   predictionRewards: boolean;
   tonWallet: false;
+};
+type AdminVote = {
+  id: string;
+  status: string;
+  startsAt: string;
+  participantCount: number;
+  translations: Array<{ language: string; title: string }>;
 };
 
 const dateTime = (value: string, language: string) =>
@@ -499,10 +509,31 @@ function AdminDashboard() {
   const [tab, setTab] = useState<'metrics' | 'users' | 'votes' | 'suggestions' | 'security'>('metrics');
   const metrics = useQuery({ queryKey: ['admin-metrics'], queryFn: () => api<Record<string, number>>('/admin/metrics', {}, true) });
   const users = useQuery({ queryKey: ['admin-users'], queryFn: () => api<{ items: Array<Record<string, any>> }>('/admin/users', {}, true) });
-  const votes = useQuery({ queryKey: ['admin-votes'], queryFn: () => api<any[]>('/admin/votes', {}, true) });
+  const votes = useQuery({ queryKey: ['admin-votes'], queryFn: () => api<AdminVote[]>('/admin/votes', {}, true) });
   const suggestions = useQuery({ queryKey: ['admin-suggestions'], queryFn: () => api<any[]>('/admin/suggestions', {}, true) });
   const labels: Record<string, string> = { totalUsers: 'Registered users', active1d: 'Active · 24h', active7d: 'Active · 7 days', active30d: 'Active · 30 days', currentVoteParticipants: 'Current participants', currentParticipationPercent: 'Participation %', activityAtLeast80: 'Activity ≥ 80%', referrals: 'Referrals', voxAwarded: 'VOX awarded', blocked: 'Blocked' };
-  return <div className={styles.admin}><aside><h1>MyVoice</h1>{(['metrics', 'users', 'votes', 'suggestions', 'security'] as const).map((value) => <button data-active={tab === value} onClick={() => setTab(value)} key={value}>{value}</button>)}</aside><main><header><span>Administration</span><strong>Secure console</strong></header>{tab === 'metrics' && <div className={styles.adminGrid}>{Object.entries(metrics.data ?? {}).map(([key, value]) => <div key={key}><span>{labels[key] ?? key}</span><strong>{value.toLocaleString()}</strong></div>)}</div>}{tab === 'users' && <div className={styles.adminTable}>{users.data?.items.map((user) => <div key={user.id}><span>{user.firstName}<small>@{user.username ?? '—'}</small></span><code>{user.telegramId}</code><strong>{user.voxBalance} VOX</strong><span>{Number(user.activityRate)}%</span><em>{user.status}</em></div>)}</div>}{tab === 'votes' && <><VoteComposer onSaved={() => void votes.refetch()} /><div className={styles.adminTable}>{votes.data?.map((vote) => <div key={vote.id}><span>{vote.translations.find((x: any) => x.language === 'en')?.title}<small>{new Date(vote.startsAt).toLocaleString()}</small></span><em>{vote.status}</em><strong>{vote.participantCount} votes</strong></div>)}</div></>}{tab === 'suggestions' && <div className={styles.adminTable}>{suggestions.data?.map((item) => <div key={item.id}><span>{item.translations[0]?.title}<small>{item.user.firstName}</small></span><em>{item.status}</em></div>)}{!suggestions.data?.length && <div className={styles.adminEmpty}>No suggestions yet.</div>}</div>}{tab === 'security' && <SecurityPanel />}</main></div>;
+  return <div className={styles.admin}><aside><h1>MyVoice</h1>{(['metrics', 'users', 'votes', 'suggestions', 'security'] as const).map((value) => <button data-active={tab === value} onClick={() => setTab(value)} key={value}>{value}</button>)}</aside><main><header><span>Administration</span><strong>Secure console</strong></header>{tab === 'metrics' && <div className={styles.adminGrid}>{Object.entries(metrics.data ?? {}).map(([key, value]) => <div key={key}><span>{labels[key] ?? key}</span><strong>{value.toLocaleString()}</strong></div>)}</div>}{tab === 'users' && <div className={styles.adminTable}>{users.data?.items.map((user) => <div key={user.id}><span>{user.firstName}<small>@{user.username ?? '—'}</small></span><code>{user.telegramId}</code><strong>{user.voxBalance} VOX</strong><span>{Number(user.activityRate)}%</span><em>{user.status}</em></div>)}</div>}{tab === 'votes' && <><VoteComposer onSaved={() => void votes.refetch()} /><div className={`${styles.adminTable} ${styles.adminVoteTable}`}>{votes.data?.map((vote) => <AdminVoteRow key={vote.id} vote={vote} onDeleted={() => votes.refetch()} />)}{!votes.data?.length && <div className={styles.adminEmpty}>No votes yet.</div>}</div></>}{tab === 'suggestions' && <div className={styles.adminTable}>{suggestions.data?.map((item) => <div key={item.id}><span>{item.translations[0]?.title}<small>{item.user.firstName}</small></span><em>{item.status}</em></div>)}{!suggestions.data?.length && <div className={styles.adminEmpty}>No suggestions yet.</div>}</div>}{tab === 'security' && <SecurityPanel />}</main></div>;
+}
+
+function AdminVoteRow({ vote, onDeleted }: { vote: AdminVote; onDeleted: () => Promise<unknown> }) {
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState('');
+  const canDelete = vote.status !== 'COMPLETED' && vote.participantCount === 0;
+  const title = vote.translations.find((translation) => translation.language === 'en')?.title ?? 'Untitled vote';
+  const remove = async () => {
+    setDeleting(true);
+    setError('');
+    try {
+      await api<{ deleted: boolean }>(`/admin/votes/${vote.id}`, { method: 'DELETE' }, true);
+      setConfirming(false);
+      await onDeleted();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+      setDeleting(false);
+    }
+  };
+  return <div className={styles.adminVoteRow}><span>{title}<small>{new Date(vote.startsAt).toLocaleString()}</small></span><em>{vote.status}</em><strong>{vote.participantCount} votes</strong><button className={styles.deleteVoteButton} disabled={!canDelete} title={canDelete ? 'Delete vote' : 'Completed votes and votes with participants cannot be deleted'} onClick={() => setConfirming(true)}><Trash2 size={16} />Delete</button>{confirming && createPortal(<div className={styles.adminDialogBackdrop} onMouseDown={(event) => { if (event.currentTarget === event.target && !deleting) setConfirming(false); }}><section className={styles.adminDialog} role="dialog" aria-modal="true" aria-labelledby={`delete-vote-${vote.id}`}><span className={styles.adminDialogIcon}><AlertTriangle /></span><p className={styles.eyebrow}>Permanent admin action</p><h2 id={`delete-vote-${vote.id}`}>Delete this vote?</h2><p><strong>{title}</strong> will disappear from MyVoice. The audit entry will remain.</p>{error && <span className={styles.errorText} role="alert">{error}</span>}<div className={styles.adminDialogActions}><button className={styles.secondary} disabled={deleting} onClick={() => setConfirming(false)}>Keep vote</button><button className={styles.confirmDeleteButton} disabled={deleting} onClick={() => void remove()}>{deleting ? 'Deleting…' : 'Delete vote'}</button></div></section></div>, document.body)}</div>;
 }
 
 function SecurityPanel() {

@@ -2,7 +2,9 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
+  NotFoundException,
   Param,
   Patch,
   Post,
@@ -309,7 +311,7 @@ export class AdminController {
 
   @Patch('votes/:id')
   async editVote(@Req() req: AuthRequest, @Param('id') id: string, @Body() dto: VoteInputDto) {
-    const before = await this.prisma.vote.findUniqueOrThrow({ where: { id } });
+    const before = await this.prisma.vote.findUniqueOrThrow({ where: { id, deletedAt: null } });
     if (before.status !== 'DRAFT') throw new BadRequestException('Only drafts may be edited');
     const { startsAt, endsAt } = this.validateVote(dto);
     const after = await this.prisma.$transaction(async (tx) => {
@@ -339,7 +341,7 @@ export class AdminController {
   @Post('votes/:id/schedule')
   async schedule(@Req() req: AuthRequest, @Param('id') id: string) {
     const vote = await this.prisma.vote.findUniqueOrThrow({
-      where: { id },
+      where: { id, deletedAt: null },
       include: { translations: true, options: { include: { translations: true } } },
     });
     if (vote.status !== 'DRAFT') throw new BadRequestException('Only drafts may be scheduled');
@@ -355,16 +357,72 @@ export class AdminController {
 
   @Post('votes/:id/cancel')
   async cancel(@Req() req: AuthRequest, @Param('id') id: string) {
-    const before = await this.prisma.vote.findUniqueOrThrow({ where: { id } });
+    const before = await this.prisma.vote.findUniqueOrThrow({ where: { id, deletedAt: null } });
     if (before.status === 'COMPLETED') throw new BadRequestException('Completed result is immutable');
     const after = await this.prisma.vote.update({ where: { id }, data: { status: 'CANCELLED' } });
     await this.audit(req.adminId!, 'VOTE_CANCEL', 'Vote', id, before, after);
     return after;
   }
 
+  @Delete('votes/:id')
+  async deleteVote(@Req() req: AuthRequest, @Param('id') id: string) {
+    return this.prisma.$transaction(
+      async (tx) => {
+        const rows = await tx.$queryRaw<
+          Array<{
+            id: string;
+            status: string;
+            participant_count: number;
+            deleted_at: Date | null;
+          }>
+        >`
+          SELECT id, status, participant_count, deleted_at
+          FROM votes
+          WHERE id = ${id}::uuid
+          FOR UPDATE
+        `;
+        const before = rows[0];
+        if (!before || before.deleted_at) throw new NotFoundException('Vote not found');
+        if (before.status === 'COMPLETED') {
+          throw new BadRequestException('Completed votes cannot be deleted');
+        }
+
+        const [storedVotes, relatedTransactions] = await Promise.all([
+          tx.userVote.count({ where: { voteId: id } }),
+          tx.voxTransaction.count({ where: { voteId: id } }),
+        ]);
+        if (before.participant_count > 0 || storedVotes > 0 || relatedTransactions > 0) {
+          throw new BadRequestException('Votes with participants cannot be deleted; cancel it instead');
+        }
+
+        const deletedAt = new Date();
+        await tx.vote.update({
+          where: { id },
+          data: { status: 'CANCELLED', deletedAt },
+        });
+        await tx.adminAuditLog.create({
+          data: {
+            adminId: req.adminId!,
+            action: 'VOTE_DELETE',
+            entityType: 'Vote',
+            entityId: id,
+            before: {
+              status: before.status,
+              participantCount: before.participant_count,
+            },
+            after: { status: 'CANCELLED', deletedAt: deletedAt.toISOString() },
+          },
+        });
+        return { deleted: true };
+      },
+      { isolationLevel: 'Serializable', maxWait: 5_000, timeout: 10_000 },
+    );
+  }
+
   @Get('votes')
   async votesList() {
     return this.prisma.vote.findMany({
+      where: { deletedAt: null },
       include: { translations: true, options: { include: { translations: true } } },
       orderBy: { createdAt: 'desc' },
       take: 100,

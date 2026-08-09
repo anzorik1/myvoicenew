@@ -126,7 +126,7 @@ export class VotesService {
             Array<{ id: string; status: string; starts_at: Date; ends_at: Date; early_reward_count: number }>
           >`
             SELECT id, status, starts_at, ends_at, early_reward_count
-            FROM votes WHERE id = ${voteId}::uuid FOR UPDATE
+            FROM votes WHERE id = ${voteId}::uuid AND deleted_at IS NULL FOR UPDATE
           `;
           const vote = lockedVotes[0];
           const now = new Date();
