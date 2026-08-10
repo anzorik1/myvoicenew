@@ -2,6 +2,7 @@ import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { AdminAuthController, AdminController } from './admin.controller';
 import { AdminLoginThrottleService, TurnstileService } from './admin-auth-security.service';
+import { AdminAdsController, AdsController, AdsService } from './ads.controller';
 import { AuthController } from './telegram-auth';
 import { AdminAuthGuard, RedisRateLimitMiddleware, UserAuthGuard } from './common';
 import { JobsService } from './jobs.service';
@@ -23,6 +24,8 @@ import { VoxService } from './vox.service';
     SystemController,
     AdminAuthController,
     AdminController,
+    AdsController,
+    AdminAdsController,
   ],
   providers: [
     PrismaService,
@@ -33,6 +36,7 @@ import { VoxService } from './vox.service';
     AdminAuthGuard,
     AdminLoginThrottleService,
     TurnstileService,
+    AdsService,
   ],
   exports: [PrismaService, VotesService],
 })

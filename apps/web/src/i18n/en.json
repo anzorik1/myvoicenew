@@ -37,7 +37,13 @@
     "noVoteOffline": "We could not check for new votes. Try again.",
     "stats": "Your progress",
     "votes": "Votes cast",
-    "referrals": "Referrals"
+    "referrals": "Referrals",
+    "quick": "Quick access",
+    "open": "Open",
+    "yourVoiceMatters": "Your voice matters",
+    "viewVote": "Open vote",
+    "stable": "Great participation rhythm",
+    "recover": "You can raise your activity"
   },
   "vote": {
     "ends": "Ends {{date}}",
@@ -50,14 +56,18 @@
     "reward": "+{{amount}} VOX added",
     "hidden": "Results will appear after the vote closes.",
     "participants": "{{count}} participants",
-    "tie": "Tie"
+    "tie": "Tie",
+    "choose": "Choose an option"
   },
   "history": {
     "title": "Past decisions",
     "empty": "No completed votes in this view.",
     "yourChoice": "Your choice",
     "didNotVote": "You did not participate",
-    "winner": "Winner"
+    "winner": "Winner",
+    "eyebrow": "MyVoice archive",
+    "subtitle": "Results of completed collective decisions.",
+    "missedShort": "Vote missed"
   },
   "referrals": {
     "title": "Invite thoughtful people",
@@ -66,7 +76,8 @@
     "active": "Active this week",
     "earned": "VOX earned",
     "programOn": "Program active",
-    "programOff": "Program paused — restore the required activity level"
+    "programOff": "Program paused — restore the required activity level",
+    "eyebrow": "More voices together"
   },
   "rating": {
     "title": "Activity rating",
@@ -74,7 +85,8 @@
     "off": "Referral rewards are paused",
     "participated": "Participated",
     "missed": "Missed",
-    "explain": "Only completed, non-cancelled votes available after registration count."
+    "explain": "Only completed, non-cancelled votes available after registration count.",
+    "eyebrow": "Participation rhythm"
   },
   "profile": {
     "title": "Profile",
@@ -92,5 +104,16 @@
     "optionTwo": "Second option",
     "send": "Send suggestion",
     "sent": "Suggestion sent for review"
+  },
+  "ads": {
+    "sponsored": "Sponsored",
+    "rewarded": "Reward for watching",
+    "earn": "Earn extra VOX",
+    "optional": "optional",
+    "limitReached": "Today's reward received",
+    "watchRemaining": "Keep watching: {{seconds}} sec.",
+    "ready": "Viewing complete — reward ready",
+    "claim": "Claim VOX",
+    "claimed": "+{{amount}} VOX added"
   }
 }

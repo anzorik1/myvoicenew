@@ -9,9 +9,15 @@ declare global {
         ready(): void;
         expand(): void;
         close(): void;
-        BackButton: { show(): void; hide(): void; onClick(cb: () => void): void; offClick(cb: () => void): void };
+        BackButton: {
+          show(): void;
+          hide(): void;
+          onClick(cb: () => void): void;
+          offClick(cb: () => void): void;
+        };
         HapticFeedback?: { notificationOccurred(type: 'success' | 'error' | 'warning'): void };
         openTelegramLink(url: string): void;
+        openLink?(url: string): void;
       };
     };
   }

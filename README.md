@@ -31,6 +31,14 @@ consents, referrals, votes, results, activity, balances, and the immutable VOX
 ledger. Redis is used for rate-limit counters, temporary referral launch
 context, and BullMQ. It is not a source of truth.
 
+Advertising is optional and managed from the separate administrator UI. A
+campaign can be either a native banner or a rewarded video. Rewarded viewing
+creates a short-lived server session; watch progress is credited in bounded
+heartbeats, and a successful claim writes one immutable `AD_REWARD` VOX ledger
+entry. PostgreSQL advisory locks, a unique session-to-ledger relation, and an
+idempotency key prevent duplicate rewards and enforce the configured per-user
+daily limit.
+
 A vote and its MVP rewards are committed in a serializable PostgreSQL
 transaction. User and vote rows are locked; database uniqueness protects one
 vote per user and all rewards use immutable unique idempotency keys. A delayed
@@ -266,15 +274,39 @@ POST   /votes/:id/cast
 GET    /votes/:id/result
 POST   /suggestions
 GET    /suggestions/me
+GET    /ads/current
+POST   /ads/:id/click
+POST   /ads/:id/reward-sessions
+POST   /ads/reward-sessions/:id/heartbeat
+POST   /ads/reward-sessions/:id/claim
 GET    /system/features
 GET    /system/public-settings
 ```
 
 Admin routes are under `/admin` and require the separate admin token. The UI
-includes metrics, users, votes, scheduling, and suggestion review; REST also
-provides blocking/unblocking, the per-user VOX ledger, manual adjustment with a
-required comment, and the audit log. Admin routes never expose vote mutation or
-result deletion operations.
+includes metrics, users, votes, scheduling, suggestion review, and advertising
+campaigns; REST also provides blocking/unblocking, the per-user VOX ledger,
+manual adjustment with a required comment, and the audit log. An administrator
+can create, activate, pause, and soft-delete banner or rewarded-video campaigns.
+Campaign copy is stored in English and Russian, and its schedule is stored in
+UTC. Admin routes never expose vote mutation or result deletion operations.
+
+### Advertising assets and reward limits
+
+The MVP administrator form accepts HTTPS URLs for banner images, destination
+pages, and MP4/WebM video assets; it does not upload files to the application
+server. Store production media in trusted object storage/CDN and use only URLs
+you are authorized to publish. For a rewarded campaign, the administrator sets
+the VOX amount, minimum watch time, and how many times one user may receive the
+reward per UTC day. Campaigns are created as drafts and are invisible until
+explicitly activated.
+
+The built-in viewing session protects ledger integrity and prevents simple
+HTTP retries from paying twice. It is not an advertiser-network proof of a
+human view. Before using paid third-party inventory at scale, integrate the
+chosen network's signed server-to-server completion callback and update the
+Terms/Privacy text for that provider. MyVoice does not sell VOX, withdraw VOX,
+or use cryptocurrency in advertising rewards.
 
 ## Feature flags and stages
 
@@ -305,7 +337,9 @@ pnpm build
 The Jest suite covers the 15 requested security and business invariants,
 including signed Telegram data, idempotent rewards, duplicate votes, tie
 results, post-close rejection, private intermediate results, activity
-semantics, bounded early rewards, and idempotent completion.
+semantics, bounded early rewards, and idempotent completion. Additional tests
+cover idempotent advertising claims, concurrent repeated session starts, and
+atomic daily reward limits.
 
 For a full integration smoke test:
 

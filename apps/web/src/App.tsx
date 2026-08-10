@@ -7,18 +7,22 @@ import {
   Check,
   Clock3,
   Copy,
+  ExternalLink,
+  Gift,
   History as HistoryIcon,
   Home as HomeIcon,
   Languages,
   Lightbulb,
+  Megaphone,
+  Play,
   RefreshCw,
   ShieldCheck,
   Send,
   Trash2,
+  Trophy,
   UserRound,
   UsersRound,
   Vote as VoteIcon,
-  WalletCards,
 } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -113,6 +117,50 @@ type AdminVote = {
   winnerReward: number;
   loserReward: number;
   translations: Array<{ language: string; title: string }>;
+};
+type AdPlacement = {
+  id: string;
+  type: 'BANNER' | 'REWARDED';
+  title: string;
+  description: string;
+  actionLabel: string;
+  imageUrl?: string;
+  mediaUrl?: string;
+  targetUrl?: string;
+  rewardVox: number;
+  minimumWatchSeconds: number;
+  dailyRewardLimit: number;
+  claimsToday: number;
+};
+type RewardSession = {
+  id: string;
+  watchedSeconds: number;
+  minimumWatchSeconds: number;
+  remainingSeconds: number;
+  expiresAt: string;
+  claimed: boolean;
+};
+type AdminAd = {
+  id: string;
+  type: 'BANNER' | 'REWARDED';
+  status: 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'ENDED';
+  startsAt: string;
+  endsAt?: string;
+  imageUrl?: string;
+  mediaUrl?: string;
+  targetUrl?: string;
+  rewardVox: number;
+  minimumWatchSeconds: number;
+  dailyRewardLimit: number;
+  impressionCount: number;
+  clickCount: number;
+  rewardCount: number;
+  translations: Array<{
+    language: string;
+    title: string;
+    description: string;
+    actionLabel: string;
+  }>;
 };
 
 const dateTime = (value: string, language: string) =>
@@ -282,6 +330,155 @@ function Consent({ onDone, signupReward }: { onDone: () => void; signupReward: n
   );
 }
 
+function BannerAdCard({ ad }: { ad: AdPlacement }) {
+  const { t } = useTranslation();
+  const open = () => {
+    void api(`/ads/${ad.id}/click`, { method: 'POST' }).catch(() => undefined);
+    if (!ad.targetUrl) return;
+    if (window.Telegram?.WebApp.openLink) window.Telegram.WebApp.openLink(ad.targetUrl);
+    else window.open(ad.targetUrl, '_blank', 'noopener,noreferrer');
+  };
+  return (
+    <article
+      className={styles.bannerAd}
+      style={
+        ad.imageUrl ? ({ '--ad-image': `url("${ad.imageUrl}")` } as React.CSSProperties) : undefined
+      }
+    >
+      <div className={styles.adLabel}>
+        <Megaphone size={13} />
+        {t('ads.sponsored')}
+      </div>
+      <div className={styles.bannerAdCopy}>
+        <h3>{ad.title}</h3>
+        <p>{ad.description}</p>
+        <button onClick={open}>
+          {ad.actionLabel}
+          <ExternalLink size={15} />
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function RewardedAdCard({ ad }: { ad: AdPlacement }) {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const [session, setSession] = useState<RewardSession | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const requestId = useRef(crypto.randomUUID());
+  const start = useMutation({
+    mutationFn: () =>
+      api<RewardSession>(`/ads/${ad.id}/reward-sessions`, {
+        method: 'POST',
+        body: JSON.stringify({ clientRequestId: requestId.current }),
+      }),
+    onSuccess: setSession,
+  });
+  const heartbeat = useMutation({
+    mutationFn: (sessionId: string) =>
+      api<RewardSession>(`/ads/reward-sessions/${sessionId}/heartbeat`, { method: 'POST' }),
+    onSuccess: setSession,
+  });
+  const claim = useMutation({
+    mutationFn: (sessionId: string) =>
+      api<{ claimed: boolean; reward: number; balance: number }>(
+        `/ads/reward-sessions/${sessionId}/claim`,
+        { method: 'POST' },
+      ),
+    onSuccess: () => {
+      setPlaying(false);
+      hapticSuccess();
+      setSession((current) => (current ? { ...current, claimed: true } : current));
+      void queryClient.invalidateQueries({ queryKey: ['me'] });
+      void queryClient.invalidateQueries({ queryKey: ['ads-current'] });
+    },
+  });
+
+  useEffect(() => {
+    if (!playing || !session || session.claimed) return;
+    const timer = window.setInterval(() => {
+      if (!heartbeat.isPending) heartbeat.mutate(session.id);
+    }, 5_000);
+    return () => window.clearInterval(timer);
+  }, [playing, session?.claimed, session?.id]);
+
+  const limitReached = ad.claimsToday >= ad.dailyRewardLimit;
+  return (
+    <article className={styles.rewardAd}>
+      <div className={styles.rewardAdTop}>
+        <span className={styles.rewardGift}>
+          <Gift />
+        </span>
+        <div>
+          <small>{t('ads.rewarded')}</small>
+          <h3>{ad.title}</h3>
+        </div>
+        <strong>+{ad.rewardVox} VOX</strong>
+      </div>
+      <p>{ad.description}</p>
+      {!session && (
+        <button
+          className={styles.rewardStart}
+          disabled={start.isPending || limitReached}
+          onClick={() => start.mutate()}
+        >
+          <Play size={17} />
+          {limitReached ? t('ads.limitReached') : ad.actionLabel}
+        </button>
+      )}
+      {session && !session.claimed && (
+        <div className={styles.rewardPlayer}>
+          <video
+            src={ad.mediaUrl}
+            poster={ad.imageUrl}
+            controls
+            playsInline
+            preload="metadata"
+            onPlay={() => setPlaying(true)}
+            onPause={() => setPlaying(false)}
+            onEnded={() => {
+              setPlaying(false);
+              if (!heartbeat.isPending) heartbeat.mutate(session.id);
+            }}
+          />
+          <div className={styles.watchProgress}>
+            <i
+              style={{
+                width: `${Math.min(100, (session.watchedSeconds / Math.max(1, session.minimumWatchSeconds)) * 100)}%`,
+              }}
+            />
+          </div>
+          <div className={styles.rewardProgressText}>
+            <span>
+              {session.remainingSeconds > 0
+                ? t('ads.watchRemaining', { seconds: session.remainingSeconds })
+                : t('ads.ready')}
+            </span>
+            <strong>+{ad.rewardVox} VOX</strong>
+          </div>
+          <button
+            className={styles.primary}
+            disabled={session.remainingSeconds > 0 || claim.isPending}
+            onClick={() => claim.mutate(session.id)}
+          >
+            {claim.isPending ? t('common.loading') : t('ads.claim')}
+          </button>
+        </div>
+      )}
+      {(start.error || heartbeat.error || claim.error) && (
+        <ErrorState error={start.error ?? heartbeat.error ?? claim.error} />
+      )}
+      {(session?.claimed || claim.isSuccess) && (
+        <div className={styles.rewardClaimed}>
+          <Check />
+          {t('ads.claimed', { amount: ad.rewardVox })}
+        </div>
+      )}
+    </article>
+  );
+}
+
 function Home({ me }: { me: Me }) {
   const { t, i18n } = useTranslation();
   const current = useQuery({
@@ -289,10 +486,45 @@ function Home({ me }: { me: Me }) {
     queryFn: () => api<CurrentVotePayload>('/votes/current'),
     retry: 2,
   });
+  const ads = useQuery({
+    queryKey: ['ads-current'],
+    queryFn: () => api<{ banners: AdPlacement[]; rewarded: AdPlacement[] }>('/ads/current'),
+    retry: 1,
+  });
   const activeVote = activeVoteFrom(current.data);
+  const quickLinks = [
+    {
+      to: '/history',
+      icon: HistoryIcon,
+      label: t('nav.history'),
+      value: me.ownVotes,
+      tone: 'blue',
+    },
+    {
+      to: '/rating',
+      icon: BarChart3,
+      label: t('nav.rating'),
+      value: `${Math.round(me.activityRate)}%`,
+      tone: 'teal',
+    },
+    {
+      to: '/referrals',
+      icon: UsersRound,
+      label: t('nav.referrals'),
+      value: me.referralCount,
+      tone: 'coral',
+    },
+    {
+      to: '/profile',
+      icon: UserRound,
+      label: t('nav.profile'),
+      value: t('home.open'),
+      tone: 'ink',
+    },
+  ] as const;
   return (
-    <div className={styles.stack}>
-      <header className={styles.hero}>
+    <div className={`${styles.stack} ${styles.homeDashboard}`}>
+      <header className={styles.dashboardHero}>
         <div className={styles.heroTop}>
           <div className={styles.userBadge}>
             <span className={styles.heroAvatar}>{me.firstName.slice(0, 1).toUpperCase()}</span>
@@ -303,21 +535,61 @@ function Home({ me }: { me: Me }) {
           </div>
           <div className={styles.voxCoin}>V</div>
         </div>
-        <div className={styles.balanceRow}>
-          <div>
-            <small>{t('home.balance')}</small>
-            <strong>
-              {me.balance.toLocaleString(i18n.language)} <span>VOX</span>
-            </strong>
+        <div className={styles.heroBalanceScene}>
+          <div className={styles.balanceRow}>
+            <div>
+              <small>{t('home.balance')}</small>
+              <strong>
+                {me.balance.toLocaleString(i18n.language)} <span>VOX</span>
+              </strong>
+            </div>
+          </div>
+          <div className={styles.voiceWave} aria-hidden>
+            {[42, 72, 54, 92, 64, 78, 46, 68, 38].map((height, index) => (
+              <i
+                key={index}
+                style={
+                  {
+                    '--wave-height': `${height}%`,
+                    '--wave-delay': `${index * 60}ms`,
+                  } as React.CSSProperties
+                }
+              />
+            ))}
           </div>
         </div>
-        <div className={styles.statusPill} data-active={me.referralProgramActive}>
-          <Activity size={16} />
-          {me.referralProgramActive ? t('home.referralOn') : t('home.referralOff')}
+        <div className={styles.heroStatusRow}>
+          <div className={styles.statusPill} data-active={me.referralProgramActive}>
+            <Activity size={16} />
+            {me.referralProgramActive ? t('home.referralOn') : t('home.referralOff')}
+          </div>
+          <div>
+            <small>{t('home.activity')}</small>
+            <strong>{Math.round(me.activityRate)}%</strong>
+          </div>
         </div>
       </header>
 
-      <section className={styles.voteSpotlight} data-empty={!activeVote}>
+      <section className={styles.quickSection}>
+        <div className={styles.sectionHeading}>
+          <span>{t('home.quick')}</span>
+        </div>
+        <div className={styles.quickGrid}>
+          {quickLinks.map(({ to, icon: Icon, label, value, tone }) => (
+            <NavLink to={to} key={to} className={styles.quickCard} data-tone={tone}>
+              <span>
+                <Icon />
+              </span>
+              <div>
+                <small>{label}</small>
+                <strong>{value}</strong>
+              </div>
+            </NavLink>
+          ))}
+        </div>
+      </section>
+
+      <section className={styles.choiceCard} data-empty={!activeVote}>
         <div className={styles.sectionHeading}>
           <span>{t('home.todayVote')}</span>
           {activeVote && <Countdown end={activeVote.endsAt} />}
@@ -339,41 +611,74 @@ function Home({ me }: { me: Me }) {
           </div>
         )}
         {activeVote && (
-          <>
-            <div className={styles.voteSymbol}>
-              <VoteIcon size={30} />
+          <div className={styles.choiceCardBody}>
+            <div className={styles.choiceVisual} aria-hidden>
+              <span>
+                <VoteIcon size={30} />
+              </span>
+              <div>
+                {[24, 48, 72, 44, 88, 62, 36].map((height, index) => (
+                  <i key={index} style={{ height: `${height}%` }} />
+                ))}
+              </div>
             </div>
-            <h2>{activeVote.title}</h2>
-            <p>{activeVote.description}</p>
-            <NavLink className={styles.primary} to={`/votes/${activeVote.id}`}>
-              {activeVote.hasVoted ? t('vote.success') : t('home.openVote')}
-            </NavLink>
-          </>
+            <div className={styles.choiceCopy}>
+              <small>{activeVote.hasVoted ? t('vote.success') : t('home.yourVoiceMatters')}</small>
+              <h2>{activeVote.title}</h2>
+              <p>{activeVote.description}</p>
+              <NavLink className={styles.primary} to={`/votes/${activeVote.id}`}>
+                {activeVote.hasVoted ? t('home.viewVote') : t('home.openVote')}
+              </NavLink>
+            </div>
+          </div>
         )}
       </section>
 
-      <section>
+      {ads.data?.banners[0] && <BannerAdCard ad={ads.data.banners[0]} />}
+
+      <section className={styles.progressSection}>
         <div className={styles.sectionHeading}>
           <span>{t('home.stats')}</span>
         </div>
-        <div className={styles.statGrid}>
-          <div className={styles.card}>
+        <div className={styles.insightGrid}>
+          <div className={styles.activityCard}>
+            <div>
+              <small>{t('home.activity')}</small>
+              <strong>{Math.round(me.activityRate)}%</strong>
+              <span>{me.referralProgramActive ? t('home.stable') : t('home.recover')}</span>
+            </div>
             <Gauge rate={me.activityRate} />
           </div>
-          <div className={styles.card}>
-            <div className={styles.miniStat}>
+          <div className={styles.tallyCard} data-tone="blue">
+            <span>
               <VoteIcon />
-              <strong>{me.ownVotes}</strong>
-              <span>{t('home.votes')}</span>
-            </div>
-            <div className={styles.miniStat}>
+            </span>
+            <small>{t('home.votes')}</small>
+            <strong>{me.ownVotes}</strong>
+          </div>
+          <div className={styles.tallyCard} data-tone="coral">
+            <span>
               <UsersRound />
-              <strong>{me.referralCount}</strong>
-              <span>{t('home.referrals')}</span>
-            </div>
+            </span>
+            <small>{t('home.referrals')}</small>
+            <strong>{me.referralCount}</strong>
           </div>
         </div>
       </section>
+
+      {Boolean(ads.data?.rewarded.length) && (
+        <section className={styles.rewardSection}>
+          <div className={styles.sectionHeading}>
+            <span>{t('ads.earn')}</span>
+            <small>{t('ads.optional')}</small>
+          </div>
+          <div className={styles.rewardList}>
+            {ads.data?.rewarded.map((ad) => (
+              <RewardedAdCard key={ad.id} ad={ad} />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
@@ -416,34 +721,47 @@ function VotePage() {
   return (
     <div className={`${styles.page} ${styles.stack}`}>
       <BackButton />
-      {item.imageUrl && <img className={styles.voteImage} src={item.imageUrl} alt="" />}
-      <div>
-        <span className={styles.eyebrow}>
-          {t('vote.ends', { date: dateTime(item.endsAt, i18n.language) })}
-        </span>
+      <section className={styles.voteQuestionCard}>
+        {item.imageUrl && <img className={styles.voteImage} src={item.imageUrl} alt="" />}
+        <div className={styles.voteQuestionMeta}>
+          <span>
+            <VoteIcon size={15} />
+            {t('home.todayVote')}
+          </span>
+          <Countdown end={item.endsAt} />
+        </div>
         <h1>{item.title}</h1>
         <p className={styles.longCopy}>{item.description}</p>
-      </div>
-      <Countdown end={item.endsAt} />
-      {item.hasVoted || cast.isSuccess ? (
-        <div className={styles.successCard}>
-          <Check size={32} />
-          <strong>{t('vote.success')}</strong>
-          <span>
-            {cast.data ? t('vote.reward', { amount: cast.data.reward }) : t('vote.hidden')}
-          </span>
+        <small className={styles.voteEndDate}>
+          {t('vote.ends', { date: dateTime(item.endsAt, i18n.language) })}
+        </small>
+      </section>
+      <section className={styles.choicePanel}>
+        <div className={styles.sectionHeading}>
+          <span>{t('vote.choose')}</span>
+          <small>1 / 2</small>
         </div>
-      ) : (
-        <div className={styles.optionStack}>
-          {item.options.map((option) => (
-            <button key={option.id} className={styles.option} onClick={() => setChosen(option)}>
-              <span>{option.position}</span>
-              {option.text}
-            </button>
-          ))}
-          <small className={styles.warning}>{t('vote.cannotChange')}</small>
-        </div>
-      )}
+        {item.hasVoted || cast.isSuccess ? (
+          <div className={styles.successCard}>
+            <Check size={32} />
+            <strong>{t('vote.success')}</strong>
+            <span>
+              {cast.data ? t('vote.reward', { amount: cast.data.reward }) : t('vote.hidden')}
+            </span>
+          </div>
+        ) : (
+          <div className={styles.optionStack}>
+            {item.options.map((option) => (
+              <button key={option.id} className={styles.option} onClick={() => setChosen(option)}>
+                <span>{option.position}</span>
+                <strong>{option.text}</strong>
+                <i />
+              </button>
+            ))}
+            <small className={styles.warning}>{t('vote.cannotChange')}</small>
+          </div>
+        )}
+      </section>
       {cast.error && <ErrorState error={cast.error} />}
       {chosen && (
         <div className={styles.modalBackdrop} role="presentation" onClick={() => setChosen(null)}>
@@ -495,7 +813,16 @@ function HistoryPage() {
   };
   return (
     <div className={`${styles.page} ${styles.stack}`}>
-      <h1>{t('history.title')}</h1>
+      <header className={styles.pageHeaderCard}>
+        <span>
+          <HistoryIcon />
+        </span>
+        <div>
+          <small>{t('history.eyebrow')}</small>
+          <h1>{t('history.title')}</h1>
+          <p>{t('history.subtitle')}</p>
+        </div>
+      </header>
       <div className={styles.segmented}>
         {(['all', 'participated', 'missed'] as const).map((value) => (
           <button key={value} data-active={filter === value} onClick={() => change(value)}>
@@ -505,7 +832,12 @@ function HistoryPage() {
       </div>
       {items.map((vote) => (
         <NavLink to={`/results/${vote.id}`} key={vote.id} className={styles.historyCard}>
-          <small>{dateTime(vote.completedAt ?? vote.endsAt, i18n.language)}</small>
+          <div className={styles.historyCardTop}>
+            <small>{dateTime(vote.completedAt ?? vote.endsAt, i18n.language)}</small>
+            <span data-voted={vote.hasVoted}>
+              {vote.hasVoted ? t('common.participated') : t('common.missed')}
+            </span>
+          </div>
           <h2>{vote.title}</h2>
           <div className={styles.resultBars}>
             {vote.options.map((option) => (
@@ -516,7 +848,7 @@ function HistoryPage() {
               </div>
             ))}
           </div>
-          <span className={styles.participation}>
+          <span className={styles.participation} data-voted={vote.hasVoted}>
             {vote.hasVoted
               ? `${t('history.yourChoice')}: ${vote.options.find((x) => x.id === vote.selectedOptionId)?.text}`
               : t('history.didNotVote')}
@@ -554,20 +886,22 @@ function ResultPage() {
   return (
     <div className={`${styles.page} ${styles.stack}`}>
       <BackButton />
-      <span className={styles.eyebrow}>
-        {dateTime(vote.completedAt ?? vote.endsAt, i18n.language)}
-      </span>
-      <h1>{vote.title}</h1>
       <div className={styles.resultHero}>
-        <VoteIcon />
-        <strong>
+        <div className={styles.resultHeroTop}>
+          <span>
+            <Trophy />
+          </span>
+          <small>{dateTime(vote.completedAt ?? vote.endsAt, i18n.language)}</small>
+        </div>
+        <h1>{vote.title}</h1>
+        <strong className={styles.resultWinner}>
           {vote.resultStatus === 'TIE'
             ? t('vote.tie')
             : `${t('history.winner')}: ${vote.options.find((x) => x.id === vote.winnerOptionId)?.text}`}
         </strong>
         <span>{t('vote.participants', { count: vote.participantCount })}</span>
       </div>
-      <div className={styles.resultBars}>
+      <div className={`${styles.resultBars} ${styles.resultCard}`}>
         {vote.options.map((option) => (
           <div key={option.id}>
             <span>{option.text}</span>
@@ -578,10 +912,16 @@ function ResultPage() {
           </div>
         ))}
       </div>
-      <div className={styles.card}>
-        {vote.hasVoted
-          ? `${t('history.yourChoice')}: ${vote.options.find((x) => x.id === vote.selectedOptionId)?.text} · +${vote.userReward ?? 0} VOX`
-          : t('history.didNotVote')}
+      <div className={styles.yourResultCard} data-voted={vote.hasVoted}>
+        <span>{vote.hasVoted ? <Check /> : <Clock3 />}</span>
+        <div>
+          <small>{vote.hasVoted ? t('history.yourChoice') : t('history.didNotVote')}</small>
+          <strong>
+            {vote.hasVoted
+              ? `${vote.options.find((x) => x.id === vote.selectedOptionId)?.text} · +${vote.userReward ?? 0} VOX`
+              : t('history.missedShort')}
+          </strong>
+        </div>
       </div>
     </div>
   );
@@ -618,21 +958,30 @@ function ReferralsPage({ minimumActivity }: { minimumActivity: number }) {
   };
   return (
     <div className={`${styles.page} ${styles.stack}`}>
-      <h1>{t('referrals.title')}</h1>
-      <p>{t('referrals.description', { minimum: minimumActivity })}</p>
-      <div className={styles.referralLink}>
-        <code>{data.link}</code>
-        <button
-          onClick={() => navigator.clipboard.writeText(data.link)}
-          aria-label={t('common.copy')}
-        >
-          <Copy />
+      <section className={styles.referralHeroCard}>
+        <div className={styles.referralOrbit}>
+          <UsersRound />
+          <i />
+          <i />
+          <i />
+        </div>
+        <small>{t('referrals.eyebrow')}</small>
+        <h1>{t('referrals.title')}</h1>
+        <p>{t('referrals.description', { minimum: minimumActivity })}</p>
+        <div className={styles.referralLink}>
+          <code>{data.link}</code>
+          <button
+            onClick={() => navigator.clipboard.writeText(data.link)}
+            aria-label={t('common.copy')}
+          >
+            <Copy />
+          </button>
+        </div>
+        <button className={styles.referralShare} onClick={share}>
+          <Send size={18} />
+          {t('common.share')}
         </button>
-      </div>
-      <button className={styles.primary} onClick={share}>
-        <Send size={18} />
-        {t('common.share')}
-      </button>
+      </section>
       <div className={styles.metricGrid}>
         <div>
           <strong>{data.registered}</strong>
@@ -672,13 +1021,20 @@ function RatingPage({ me }: { me: Me }) {
   };
   return (
     <div className={`${styles.page} ${styles.stack}`}>
-      <h1>{t('rating.title')}</h1>
-      <div className={styles.bigGauge}>
-        <Gauge rate={data.rate} />
-      </div>
-      <div className={styles.statusPanel} data-active={data.referralProgramActive}>
-        {data.referralProgramActive ? t('rating.on') : t('rating.off')}
-      </div>
+      <section className={styles.ratingHeroCard} data-active={data.referralProgramActive}>
+        <div>
+          <small>{t('rating.eyebrow')}</small>
+          <h1>{t('rating.title')}</h1>
+          <p>{t('rating.explain')}</p>
+        </div>
+        <div className={styles.bigGauge}>
+          <Gauge rate={data.rate} />
+        </div>
+        <div className={styles.ratingStatus}>
+          <Activity />
+          {data.referralProgramActive ? t('rating.on') : t('rating.off')}
+        </div>
+      </section>
       <div className={styles.metricGrid}>
         <div>
           <strong>{data.participated}</strong>
@@ -689,7 +1045,6 @@ function RatingPage({ me }: { me: Me }) {
           <span>{t('rating.missed')}</span>
         </div>
       </div>
-      <p className={styles.muted}>{t('rating.explain')}</p>
     </div>
   );
 }
@@ -708,20 +1063,23 @@ function ProfilePage({ me }: { me: Me }) {
   return (
     <div className={`${styles.page} ${styles.stack}`}>
       <div className={styles.profileHero}>
-        <div className={styles.avatar}>{me.firstName[0]}</div>
-        <div>
-          <h1>
-            {me.firstName} {me.lastName}
-          </h1>
-          <span>{me.username ? `@${me.username}` : 'Telegram user'}</span>
+        <div className={styles.profileIdentity}>
+          <div className={styles.avatar}>{me.firstName[0]}</div>
+          <div>
+            <small>MYVOICE MEMBER</small>
+            <h1>
+              {me.firstName} {me.lastName}
+            </h1>
+            <span>{me.username ? `@${me.username}` : 'Telegram user'}</span>
+          </div>
+        </div>
+        <div className={styles.profileBalance}>
+          <small>{t('home.balance')}</small>
+          <strong>{me.balance.toLocaleString(i18n.language)}</strong>
+          <span>VOX</span>
         </div>
       </div>
-      <div className={styles.profileList}>
-        <div>
-          <WalletCards />
-          <span>VOX</span>
-          <strong>{me.balance}</strong>
-        </div>
+      <div className={styles.profileStatGrid}>
         <div>
           <VoteIcon />
           <span>{t('home.votes')}</span>
@@ -737,6 +1095,8 @@ function ProfilePage({ me }: { me: Me }) {
           <span>{t('home.referrals')}</span>
           <strong>{me.referralCount}</strong>
         </div>
+      </div>
+      <div className={styles.profileList}>
         <div>
           <Clock3 />
           <span>{t('profile.memberSince')}</span>
@@ -1016,9 +1376,9 @@ function AdminApp() {
 }
 
 function AdminDashboard() {
-  const [tab, setTab] = useState<'metrics' | 'users' | 'votes' | 'suggestions' | 'security'>(
-    'metrics',
-  );
+  const [tab, setTab] = useState<
+    'metrics' | 'users' | 'votes' | 'ads' | 'suggestions' | 'security'
+  >('metrics');
   const metrics = useQuery({
     queryKey: ['admin-metrics'],
     queryFn: () => api<Record<string, number>>('/admin/metrics', {}, true),
@@ -1034,6 +1394,10 @@ function AdminDashboard() {
   const suggestions = useQuery({
     queryKey: ['admin-suggestions'],
     queryFn: () => api<any[]>('/admin/suggestions', {}, true),
+  });
+  const ads = useQuery({
+    queryKey: ['admin-ads'],
+    queryFn: () => api<AdminAd[]>('/admin/ads', {}, true),
   });
   const labels: Record<string, string> = {
     totalUsers: 'Registered users',
@@ -1051,7 +1415,7 @@ function AdminDashboard() {
     <div className={styles.admin}>
       <aside>
         <h1>MyVoice</h1>
-        {(['metrics', 'users', 'votes', 'suggestions', 'security'] as const).map((value) => (
+        {(['metrics', 'users', 'votes', 'ads', 'suggestions', 'security'] as const).map((value) => (
           <button data-active={tab === value} onClick={() => setTab(value)} key={value}>
             {value}
           </button>
@@ -1099,6 +1463,7 @@ function AdminDashboard() {
             </div>
           </>
         )}
+        {tab === 'ads' && <AdManager ads={ads.data ?? []} onChanged={() => void ads.refetch()} />}
         {tab === 'suggestions' && (
           <div className={styles.adminTable}>
             {suggestions.data?.map((item) => (
@@ -1208,6 +1573,296 @@ function AdminVoteRow({ vote, onDeleted }: { vote: AdminVote; onDeleted: () => P
           document.body,
         )}
     </div>
+  );
+}
+
+function AdManager({ ads, onChanged }: { ads: AdminAd[]; onChanged: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [type, setType] = useState<'BANNER' | 'REWARDED'>('BANNER');
+  const [message, setMessage] = useState('');
+  const [saving, setSaving] = useState(false);
+  const optional = (value: FormDataEntryValue | null) => {
+    const text = String(value ?? '').trim();
+    return text || undefined;
+  };
+  const save = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSaving(true);
+    setMessage('');
+    const data = new FormData(event.currentTarget);
+    try {
+      await api(
+        '/admin/ads',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            type,
+            startsAt: new Date(String(data.get('startsAt'))).toISOString(),
+            endsAt: optional(data.get('endsAt'))
+              ? new Date(String(data.get('endsAt'))).toISOString()
+              : undefined,
+            imageUrl: optional(data.get('imageUrl')),
+            mediaUrl: optional(data.get('mediaUrl')),
+            targetUrl: optional(data.get('targetUrl')),
+            rewardVox: type === 'REWARDED' ? Number(data.get('rewardVox')) : 0,
+            minimumWatchSeconds: type === 'REWARDED' ? Number(data.get('minimumWatchSeconds')) : 0,
+            dailyRewardLimit: type === 'REWARDED' ? Number(data.get('dailyRewardLimit')) : 1,
+            translations: [
+              {
+                language: 'en',
+                title: data.get('titleEn'),
+                description: data.get('descriptionEn'),
+                actionLabel: data.get('actionEn'),
+              },
+              {
+                language: 'ru',
+                title: data.get('titleRu'),
+                description: data.get('descriptionRu'),
+                actionLabel: data.get('actionRu'),
+              },
+            ],
+          }),
+        },
+        true,
+      );
+      setMessage('Campaign created as draft. Activate it when ready.');
+      setOpen(false);
+      onChanged();
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <section className={styles.adManager}>
+      <div className={styles.adManagerHead}>
+        <div>
+          <small>MONETIZATION</small>
+          <h2>Advertising campaigns</h2>
+          <p>Create native banners and optional VOX rewards for watched videos.</p>
+        </div>
+        <button className={styles.primary} onClick={() => setOpen((value) => !value)}>
+          {open ? 'Close' : 'Create campaign'}
+        </button>
+      </div>
+      {message && <div className={styles.adminNotice}>{message}</div>}
+      {open && (
+        <form className={`${styles.form} ${styles.adComposer}`} onSubmit={save}>
+          <div className={styles.adTypeChoice}>
+            <button type="button" data-active={type === 'BANNER'} onClick={() => setType('BANNER')}>
+              <Megaphone />
+              Banner<span>Image, text and link</span>
+            </button>
+            <button
+              type="button"
+              data-active={type === 'REWARDED'}
+              onClick={() => setType('REWARDED')}
+            >
+              <Gift />
+              Rewarded video<span>Watch and receive VOX</span>
+            </button>
+          </div>
+          <div className={styles.twoCols}>
+            <label>
+              Starts (local)
+              <input type="datetime-local" name="startsAt" required />
+            </label>
+            <label>
+              Ends (optional)
+              <input type="datetime-local" name="endsAt" />
+            </label>
+          </div>
+          <label>
+            Card image URL (HTTPS)
+            <input type="url" name="imageUrl" placeholder="https://…/banner.jpg" />
+          </label>
+          {type === 'BANNER' ? (
+            <label>
+              Destination URL (HTTPS)
+              <input
+                type="url"
+                name="targetUrl"
+                required
+                placeholder="https://advertiser.example"
+              />
+            </label>
+          ) : (
+            <>
+              <label>
+                Video URL (HTTPS, MP4/WebM)
+                <input type="url" name="mediaUrl" required placeholder="https://…/advert.mp4" />
+              </label>
+              <div className={styles.threeCols}>
+                <label>
+                  Reward, VOX
+                  <input
+                    type="number"
+                    name="rewardVox"
+                    min="1"
+                    max="1000000"
+                    defaultValue="5"
+                    required
+                  />
+                </label>
+                <label>
+                  Watch seconds
+                  <input
+                    type="number"
+                    name="minimumWatchSeconds"
+                    min="5"
+                    max="3600"
+                    defaultValue="15"
+                    required
+                  />
+                </label>
+                <label>
+                  Daily limit
+                  <input
+                    type="number"
+                    name="dailyRewardLimit"
+                    min="1"
+                    max="100"
+                    defaultValue="1"
+                    required
+                  />
+                </label>
+              </div>
+            </>
+          )}
+          <div className={styles.translationPanel}>
+            <strong>English</strong>
+            <label>
+              Title
+              <input name="titleEn" minLength={2} maxLength={160} required />
+            </label>
+            <label>
+              Description
+              <textarea name="descriptionEn" minLength={2} maxLength={500} required />
+            </label>
+            <label>
+              Button text
+              <input
+                name="actionEn"
+                minLength={2}
+                maxLength={80}
+                defaultValue={type === 'BANNER' ? 'Learn more' : 'Watch and earn'}
+                required
+              />
+            </label>
+          </div>
+          <div className={styles.translationPanel}>
+            <strong>Русский</strong>
+            <label>
+              Заголовок
+              <input name="titleRu" minLength={2} maxLength={160} required />
+            </label>
+            <label>
+              Описание
+              <textarea name="descriptionRu" minLength={2} maxLength={500} required />
+            </label>
+            <label>
+              Текст кнопки
+              <input
+                name="actionRu"
+                minLength={2}
+                maxLength={80}
+                defaultValue={type === 'BANNER' ? 'Подробнее' : 'Смотреть и получить'}
+                required
+              />
+            </label>
+          </div>
+          <button className={styles.primary} disabled={saving}>
+            {saving ? 'Creating…' : 'Create draft'}
+          </button>
+        </form>
+      )}
+      <div className={styles.adAdminGrid}>
+        {ads.map((ad) => (
+          <AdminAdCard key={ad.id} ad={ad} onChanged={onChanged} />
+        ))}
+        {!ads.length && <div className={styles.adminEmpty}>No advertising campaigns yet.</div>}
+      </div>
+    </section>
+  );
+}
+
+function AdminAdCard({ ad, onChanged }: { ad: AdminAd; onChanged: () => void }) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState('');
+  const translation = ad.translations.find((item) => item.language === 'en') ?? ad.translations[0];
+  const action = async (name: 'activate' | 'pause' | 'delete') => {
+    if (
+      name === 'delete' &&
+      !window.confirm('Delete this campaign? Its reward ledger will remain stored.')
+    )
+      return;
+    setPending(true);
+    setError('');
+    try {
+      await api(
+        `/admin/ads/${ad.id}${name === 'delete' ? '' : `/${name}`}`,
+        { method: name === 'delete' ? 'DELETE' : 'POST' },
+        true,
+      );
+      onChanged();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setPending(false);
+    }
+  };
+  return (
+    <article className={styles.adminAdCard}>
+      <div
+        className={styles.adminAdPreview}
+        style={ad.imageUrl ? { backgroundImage: `url("${ad.imageUrl}")` } : undefined}
+      >
+        <span>{ad.type === 'BANNER' ? <Megaphone /> : <Gift />}</span>
+        <em>{ad.status}</em>
+      </div>
+      <div className={styles.adminAdBody}>
+        <small>{ad.type}</small>
+        <h3>{translation?.title ?? 'Untitled campaign'}</h3>
+        <p>{translation?.description}</p>
+        <div className={styles.adMetrics}>
+          <span>
+            Views <strong>{ad.impressionCount}</strong>
+          </span>
+          <span>
+            Clicks <strong>{ad.clickCount}</strong>
+          </span>
+          <span>
+            Rewards <strong>{ad.rewardCount}</strong>
+          </span>
+        </div>
+        {ad.type === 'REWARDED' && (
+          <div className={styles.rewardRule}>
+            +{ad.rewardVox} VOX · {ad.minimumWatchSeconds}s · {ad.dailyRewardLimit}/day
+          </div>
+        )}
+        {error && <span className={styles.errorText}>{error}</span>}
+        <div className={styles.adminAdActions}>
+          {ad.status !== 'ACTIVE' ? (
+            <button disabled={pending} onClick={() => void action('activate')}>
+              Activate
+            </button>
+          ) : (
+            <button disabled={pending} onClick={() => void action('pause')}>
+              Pause
+            </button>
+          )}
+          <button
+            className={styles.deleteVoteButton}
+            disabled={pending}
+            onClick={() => void action('delete')}
+          >
+            <Trash2 size={15} />
+            Delete
+          </button>
+        </div>
+      </div>
+    </article>
   );
 }
 
