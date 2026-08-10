@@ -1,4 +1,5 @@
-const base = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
+const configuredBase = import.meta.env.VITE_API_URL?.trim();
+const base = configuredBase || (import.meta.env.PROD ? '/api' : 'http://localhost:3000');
 let accessToken = '';
 let adminToken = sessionStorage.getItem('myvoice_admin_token') ?? '';
 
