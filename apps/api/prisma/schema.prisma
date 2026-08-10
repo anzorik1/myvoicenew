@@ -136,6 +136,8 @@ model Vote {
   resultPublishedAt   DateTime?        @map("result_published_at")
   completedAt         DateTime?        @map("completed_at")
   earlyRewardCount    Int              @default(0) @map("early_reward_count")
+  winnerReward        Int              @default(0) @map("winner_reward")
+  loserReward         Int              @default(0) @map("loser_reward")
   createdByAdminId    String           @map("created_by_admin_id") @db.Uuid
   createdAt           DateTime         @default(now()) @map("created_at")
   updatedAt           DateTime         @updatedAt @map("updated_at")

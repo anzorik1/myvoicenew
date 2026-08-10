@@ -1,5 +1,6 @@
-import { BadRequestException } from '@nestjs/common';
-import { AdminController } from '../src/admin.controller';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
+import { AdminController, VoteInputDto } from '../src/admin.controller';
 import { AuthRequest } from '../src/common';
 
 describe('admin vote deletion', () => {
@@ -11,8 +12,6 @@ describe('admin vote deletion', () => {
     const audit = jest.fn(async () => ({ id: 'audit-id' }));
     const tx = {
       $queryRaw: jest.fn(async () => [{ id: voteId, deleted_at: null, ...row }]),
-      userVote: { count: jest.fn(async () => row.participant_count) },
-      voxTransaction: { count: jest.fn(async () => row.participant_count) },
       vote: { update },
       adminAuditLog: { create: audit },
     };
@@ -26,8 +25,8 @@ describe('admin vote deletion', () => {
     };
   };
 
-  test('soft-deletes an unparticipated vote and records the admin action', async () => {
-    const { controller, update, audit } = setup({ status: 'SCHEDULED', participant_count: 0 });
+  test('soft-deletes any vote and records the admin action', async () => {
+    const { controller, update, audit } = setup({ status: 'COMPLETED', participant_count: 3 });
 
     await expect(controller.deleteVote({ adminId } as AuthRequest, voteId)).resolves.toEqual({
       deleted: true,
@@ -35,7 +34,7 @@ describe('admin vote deletion', () => {
 
     expect(update).toHaveBeenCalledWith({
       where: { id: voteId },
-      data: { status: 'CANCELLED', deletedAt: expect.any(Date) },
+      data: { deletedAt: expect.any(Date) },
     });
     expect(audit).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -47,21 +46,22 @@ describe('admin vote deletion', () => {
     });
   });
 
-  test('does not delete a completed vote', async () => {
-    const { controller, update } = setup({ status: 'COMPLETED', participant_count: 0 });
+  test('accepts the nested vote payload that the admin form sends', async () => {
+    const payload = plainToInstance(VoteInputDto, {
+      startsAt: '2026-08-10T12:00:00.000Z',
+      endsAt: '2026-08-11T12:00:00.000Z',
+      winnerReward: 25,
+      loserReward: 5,
+      translations: [
+        { language: 'en', title: 'English title', description: 'English description' },
+        { language: 'ru', title: 'Русский заголовок', description: 'Русское описание' },
+      ],
+      options: [
+        { position: 1, translations: [{ language: 'en', text: 'Yes' }, { language: 'ru', text: 'Да' }] },
+        { position: 2, translations: [{ language: 'en', text: 'No' }, { language: 'ru', text: 'Нет' }] },
+      ],
+    });
 
-    await expect(controller.deleteVote({ adminId } as AuthRequest, voteId)).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
-    expect(update).not.toHaveBeenCalled();
-  });
-
-  test('does not delete a vote that has participants', async () => {
-    const { controller, update } = setup({ status: 'ACTIVE', participant_count: 1 });
-
-    await expect(controller.deleteVote({ adminId } as AuthRequest, voteId)).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
-    expect(update).not.toHaveBeenCalled();
+    await expect(validate(payload, { whitelist: true, forbidNonWhitelisted: true })).resolves.toEqual([]);
   });
 });

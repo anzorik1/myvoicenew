@@ -235,11 +235,22 @@ export class VotesService {
   async complete(voteId: string) {
     return this.prisma.$transaction(
       async (tx) => {
-        const locked = await tx.$queryRaw<Array<{ status: string; starts_at: Date; ends_at: Date }>>`
-          SELECT status, starts_at, ends_at FROM votes WHERE id = ${voteId}::uuid FOR UPDATE
+        const locked = await tx.$queryRaw<
+          Array<{
+            status: string;
+            starts_at: Date;
+            ends_at: Date;
+            deleted_at: Date | null;
+            winner_reward: number;
+            loser_reward: number;
+          }>
+        >`
+          SELECT status, starts_at, ends_at, deleted_at, winner_reward, loser_reward
+          FROM votes WHERE id = ${voteId}::uuid FOR UPDATE
         `;
         const vote = locked[0];
         if (!vote) throw new NotFoundException('Vote not found');
+        if (vote.deleted_at) return { alreadyFinal: true };
         if (vote.status === 'COMPLETED' || vote.status === 'CANCELLED') {
           return { alreadyFinal: true };
         }
@@ -279,6 +290,27 @@ export class VotesService {
             resultPublishedAt: now,
           },
         });
+        const userVotes = await tx.userVote.findMany({
+          where: { voteId },
+          select: { id: true, userId: true, optionId: true },
+        });
+        if (!tie && winnerOptionId) {
+          for (const userVote of userVotes) {
+            const won = userVote.optionId === winnerOptionId;
+            const amount = won ? vote.winner_reward : vote.loser_reward;
+            if (amount <= 0) continue;
+            const type = won ? 'WINNER_REWARD' : 'LOSER_REWARD';
+            await this.vox.award(tx, {
+              userId: userVote.userId,
+              type,
+              amount,
+              idempotencyKey: `vote:${userVote.id}:outcome:${type}`,
+              voteId,
+              userVoteId: userVote.id,
+              comment: won ? 'Configured winner outcome reward' : 'Configured loser outcome reward',
+            });
+          }
+        }
         const eligibleUsers = await tx.user.findMany({
           where: {
             status: 'ACTIVE',
@@ -286,14 +318,7 @@ export class VotesService {
           },
           select: { id: true, eligibleVotesCount: true, completedVotesParticipated: true },
         });
-        const participants = new Set(
-          (
-            await tx.userVote.findMany({
-              where: { voteId },
-              select: { userId: true },
-            })
-          ).map((item) => item.userId),
-        );
+        const participants = new Set(userVotes.map((item) => item.userId));
         for (const user of eligibleUsers) {
           const eligible = user.eligibleVotesCount + 1;
           const participated = user.completedVotesParticipated + (participants.has(user.id) ? 1 : 0);

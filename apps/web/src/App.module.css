@@ -147,6 +147,10 @@
 .securityHint { margin: -2px 0 2px; color: #686472; font-size: 12px; line-height: 1.5; }
 .composer { padding: 18px; margin-bottom: 18px; border-radius: 16px; background: white; }
 .composer > .form { margin-top: 18px; }
+.rewardSettings { display: grid; gap: 14px; padding: 16px; border: 1px solid #ddd8fa; border-radius: 15px; background: #f7f5ff; }
+.rewardSettings small, .rewardSettings strong { display: block; }
+.rewardSettings small { margin-bottom: 3px; color: #6657d9; font-weight: 850; text-transform: uppercase; letter-spacing: .07em; }
+.rewardSettings p { margin: 0; color: #686472; font-size: 12px; line-height: 1.5; }
 .twoCols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 @keyframes shine { to { background-position: -200% 0; } }
 @keyframes spin { to { transform: rotate(360deg); } }

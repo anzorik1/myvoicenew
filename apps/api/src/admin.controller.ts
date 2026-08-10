@@ -14,8 +14,24 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Prisma } from '@prisma/client';
+import { RULES } from '@myvoice/config';
 import { hash, verify } from 'argon2';
-import { IsEmail, IsInt, IsOptional, IsString, Length, Matches } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
+  IsEmail,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Length,
+  Matches,
+  Max,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 import { AdminAuthGuard, AuthRequest } from './common';
 import { JobsService } from './jobs.service';
 import { PrismaService } from './prisma.service';
@@ -53,9 +69,38 @@ class AdjustmentDto {
   idempotencyKey!: string;
 }
 
-type VoteTranslationInput = { language: 'en' | 'ru'; title: string; description: string };
-type OptionInput = { position: 1 | 2; translations: { language: 'en' | 'ru'; text: string }[] };
-class VoteInputDto {
+class VoteTranslationDto {
+  @IsIn(['en', 'ru'])
+  language!: 'en' | 'ru';
+  @IsString()
+  @Length(3, 240)
+  title!: string;
+  @IsString()
+  @Length(10, 3000)
+  description!: string;
+}
+
+class VoteOptionTranslationDto {
+  @IsIn(['en', 'ru'])
+  language!: 'en' | 'ru';
+  @IsString()
+  @Length(1, 160)
+  text!: string;
+}
+
+class VoteOptionDto {
+  @IsInt()
+  @IsIn([1, 2])
+  position!: 1 | 2;
+  @IsArray()
+  @ArrayMinSize(2)
+  @ArrayMaxSize(2)
+  @ValidateNested({ each: true })
+  @Type(() => VoteOptionTranslationDto)
+  translations!: VoteOptionTranslationDto[];
+}
+
+export class VoteInputDto {
   @IsString()
   startsAt!: string;
   @IsString()
@@ -63,8 +108,28 @@ class VoteInputDto {
   @IsOptional()
   @IsString()
   imageUrl?: string;
-  translations!: VoteTranslationInput[];
-  options!: OptionInput[];
+  @IsArray()
+  @ArrayMinSize(2)
+  @ArrayMaxSize(2)
+  @ValidateNested({ each: true })
+  @Type(() => VoteTranslationDto)
+  translations!: VoteTranslationDto[];
+  @IsArray()
+  @ArrayMinSize(2)
+  @ArrayMaxSize(2)
+  @ValidateNested({ each: true })
+  @Type(() => VoteOptionDto)
+  options!: VoteOptionDto[];
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(RULES.MAX_OUTCOME_REWARD)
+  winnerReward?: number;
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(RULES.MAX_OUTCOME_REWARD)
+  loserReward?: number;
 }
 
 @Controller('admin/auth')
@@ -293,6 +358,8 @@ export class AdminController {
         startsAt,
         endsAt,
         imageUrl: dto.imageUrl,
+        winnerReward: dto.winnerReward ?? 0,
+        loserReward: dto.loserReward ?? 0,
         status: 'DRAFT',
         createdByAdminId: req.adminId!,
         translations: { create: dto.translations },
@@ -323,6 +390,8 @@ export class AdminController {
           startsAt,
           endsAt,
           imageUrl: dto.imageUrl,
+          winnerReward: dto.winnerReward ?? 0,
+          loserReward: dto.loserReward ?? 0,
           translations: { create: dto.translations },
           options: {
             create: dto.options.map((option) => ({
@@ -383,22 +452,10 @@ export class AdminController {
         `;
         const before = rows[0];
         if (!before || before.deleted_at) throw new NotFoundException('Vote not found');
-        if (before.status === 'COMPLETED') {
-          throw new BadRequestException('Completed votes cannot be deleted');
-        }
-
-        const [storedVotes, relatedTransactions] = await Promise.all([
-          tx.userVote.count({ where: { voteId: id } }),
-          tx.voxTransaction.count({ where: { voteId: id } }),
-        ]);
-        if (before.participant_count > 0 || storedVotes > 0 || relatedTransactions > 0) {
-          throw new BadRequestException('Votes with participants cannot be deleted; cancel it instead');
-        }
-
         const deletedAt = new Date();
         await tx.vote.update({
           where: { id },
-          data: { status: 'CANCELLED', deletedAt },
+          data: { deletedAt },
         });
         await tx.adminAuditLog.create({
           data: {
@@ -410,7 +467,7 @@ export class AdminController {
               status: before.status,
               participantCount: before.participant_count,
             },
-            after: { status: 'CANCELLED', deletedAt: deletedAt.toISOString() },
+            after: { status: before.status, deletedAt: deletedAt.toISOString() },
           },
         });
         return { deleted: true };
