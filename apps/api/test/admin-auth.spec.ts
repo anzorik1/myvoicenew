@@ -23,13 +23,15 @@ describe('admin password change', () => {
       adminAuditLog: { create: auditCreate },
       $transaction: jest.fn(async (operations: Array<Promise<unknown>>) => Promise.all(operations)),
     };
-    const controller = new AdminAuthController(prisma as never, {} as never);
+    const controller = new AdminAuthController(
+      prisma as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
 
     await expect(
-      controller.changePassword(
-        { adminId } as AuthRequest,
-        { currentPassword, newPassword },
-      ),
+      controller.changePassword({ adminId } as AuthRequest, { currentPassword, newPassword }),
     ).resolves.toEqual({ changed: true });
 
     expect(storedHash).not.toBe(currentHash);
@@ -54,13 +56,18 @@ describe('admin password change', () => {
       adminAuditLog: { create: jest.fn() },
       $transaction: jest.fn(),
     };
-    const controller = new AdminAuthController(prisma as never, {} as never);
+    const controller = new AdminAuthController(
+      prisma as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
 
     await expect(
-      controller.changePassword(
-        { adminId } as AuthRequest,
-        { currentPassword: 'WrongPassword_123', newPassword: 'NewPassword_456!' },
-      ),
+      controller.changePassword({ adminId } as AuthRequest, {
+        currentPassword: 'WrongPassword_123',
+        newPassword: 'NewPassword_456!',
+      }),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(update).not.toHaveBeenCalled();
   });

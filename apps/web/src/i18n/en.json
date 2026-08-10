@@ -1,12 +1,96 @@
 {
-  "nav": { "home": "Home", "history": "History", "referrals": "Referrals", "rating": "Rating", "profile": "Profile", "suggest": "Suggest" },
-  "common": { "loading": "Loading…", "retry": "Try again", "copy": "Copy", "share": "Share", "all": "All", "participated": "I participated", "missed": "I missed", "error": "Something went wrong" },
-  "auth": { "openTelegram": "Open MyVoice from its Telegram bot to continue.", "terms": "Terms of Use", "privacy": "Privacy Policy", "accept": "I accept both documents", "continue": "Continue and receive {{amount}} VOX" },
-  "home": { "hello": "Hello, {{name}}", "balance": "Your VOX", "activity": "Activity", "referralOn": "Referral rewards active", "referralOff": "Referral rewards paused", "todayVote": "Today's collective choice", "openVote": "Vote now", "noVote": "A new vote is coming soon.", "stats": "Your progress", "votes": "Votes cast", "referrals": "Referrals" },
-  "vote": { "ends": "Ends {{date}}", "cannotChange": "Your choice cannot be changed after confirmation.", "confirmTitle": "Confirm your choice?", "confirmText": "You selected “{{option}}”. This action is final.", "cancel": "Not yet", "confirm": "Confirm vote", "success": "Your voice is counted", "reward": "+{{amount}} VOX added", "hidden": "Results will appear after the vote closes.", "participants": "{{count}} participants", "tie": "Tie" },
-  "history": { "title": "Past decisions", "empty": "No completed votes in this view.", "yourChoice": "Your choice", "didNotVote": "You did not participate", "winner": "Winner" },
-  "referrals": { "title": "Invite thoughtful people", "description": "Earn VOX when direct referrals register and vote while your activity is at least {{minimum}}%.", "registered": "Registered", "active": "Active this week", "earned": "VOX earned", "programOn": "Program active", "programOff": "Program paused — restore the required activity level" },
-  "rating": { "title": "Activity rating", "on": "Referral rewards are active", "off": "Referral rewards are paused", "participated": "Participated", "missed": "Missed", "explain": "Only completed, non-cancelled votes available after registration count." },
-  "profile": { "title": "Profile", "memberSince": "Member since", "language": "Language", "documents": "Accepted documents", "english": "English", "russian": "Русский" },
-  "suggest": { "title": "Suggest a Vote", "description": "Send an idea for moderator review.", "voteDescription": "Description", "optionOne": "First option", "optionTwo": "Second option", "send": "Send suggestion", "sent": "Suggestion sent for review" }
+  "nav": {
+    "home": "Home",
+    "history": "History",
+    "referrals": "Referrals",
+    "rating": "Rating",
+    "profile": "Profile",
+    "suggest": "Suggest"
+  },
+  "common": {
+    "loading": "Loading…",
+    "retry": "Try again",
+    "copy": "Copy",
+    "share": "Share",
+    "all": "All",
+    "participated": "I participated",
+    "missed": "I missed",
+    "error": "Something went wrong"
+  },
+  "auth": {
+    "openTelegram": "Open MyVoice from its Telegram bot to continue.",
+    "terms": "Terms of Use",
+    "privacy": "Privacy Policy",
+    "accept": "I accept both documents",
+    "continue": "Continue and receive {{amount}} VOX"
+  },
+  "home": {
+    "hello": "Hello, {{name}}",
+    "balance": "Your balance",
+    "activity": "Activity",
+    "referralOn": "Referral rewards active",
+    "referralOff": "Referral rewards paused",
+    "todayVote": "Today's collective choice",
+    "openVote": "Vote now",
+    "noVote": "No votes for now",
+    "noVoteHint": "When a new question appears, you will find it here.",
+    "noVoteOffline": "We could not check for new votes. Try again.",
+    "stats": "Your progress",
+    "votes": "Votes cast",
+    "referrals": "Referrals"
+  },
+  "vote": {
+    "ends": "Ends {{date}}",
+    "cannotChange": "Your choice cannot be changed after confirmation.",
+    "confirmTitle": "Confirm your choice?",
+    "confirmText": "You selected “{{option}}”. This action is final.",
+    "cancel": "Not yet",
+    "confirm": "Confirm vote",
+    "success": "Your voice is counted",
+    "reward": "+{{amount}} VOX added",
+    "hidden": "Results will appear after the vote closes.",
+    "participants": "{{count}} participants",
+    "tie": "Tie"
+  },
+  "history": {
+    "title": "Past decisions",
+    "empty": "No completed votes in this view.",
+    "yourChoice": "Your choice",
+    "didNotVote": "You did not participate",
+    "winner": "Winner"
+  },
+  "referrals": {
+    "title": "Invite thoughtful people",
+    "description": "Earn VOX when direct referrals register and vote while your activity is at least {{minimum}}%.",
+    "registered": "Registered",
+    "active": "Active this week",
+    "earned": "VOX earned",
+    "programOn": "Program active",
+    "programOff": "Program paused — restore the required activity level"
+  },
+  "rating": {
+    "title": "Activity rating",
+    "on": "Referral rewards are active",
+    "off": "Referral rewards are paused",
+    "participated": "Participated",
+    "missed": "Missed",
+    "explain": "Only completed, non-cancelled votes available after registration count."
+  },
+  "profile": {
+    "title": "Profile",
+    "memberSince": "Member since",
+    "language": "Language",
+    "documents": "Accepted documents",
+    "english": "English",
+    "russian": "Русский"
+  },
+  "suggest": {
+    "title": "Suggest a Vote",
+    "description": "Send an idea for moderator review.",
+    "voteDescription": "Description",
+    "optionOne": "First option",
+    "optionTwo": "Second option",
+    "send": "Send suggestion",
+    "sent": "Suggestion sent for review"
+  }
 }

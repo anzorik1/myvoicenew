@@ -9,6 +9,8 @@ import { ApiExceptionFilter, WriteAuditInterceptor } from './observability';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  // Caddy is the only public hop in production; trust its forwarded client IP.
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
   app.use(helmet());
   app.use(cookieParser());
   app.enableCors({

@@ -72,7 +72,12 @@ Set at least:
 - `VITE_BOT_USERNAME`: bot username without `@`.
 - `SESSION_PEPPER`: long random value used when hashing user sessions.
 - `ADMIN_JWT_SECRET`: separate long random admin signing secret.
+- `ADMIN_SESSION_TTL_SECONDS`: short admin token lifetime; production default is 900 seconds.
+- `ADMIN_THROTTLE_PEPPER`: separate random value used to hash IP/account throttle keys.
 - `ADMIN_SEED_PASSWORD`: initial local admin password.
+- `TURNSTILE_SITE_KEY`: public Cloudflare Turnstile widget key.
+- `TURNSTILE_SECRET_KEY`: secret Turnstile key used only by the API.
+- `TURNSTILE_EXPECTED_HOSTNAME`: hostname accepted in the verified CAPTCHA response.
 - `CORS_ORIGIN`: exact frontend origin.
 
 Never commit `.env`. Vite exposes only variables prefixed with `VITE_`; do not
@@ -109,6 +114,24 @@ Services:
 
 The seed admin is `ADMIN_SEED_EMAIL` / `ADMIN_SEED_PASSWORD`. Change the
 password before sharing an environment.
+
+### Protect the administrator login
+
+Create a managed Cloudflare Turnstile widget for the admin hostname and place
+its keys in `.env`. Only `TURNSTILE_SITE_KEY` is returned to the login page;
+`TURNSTILE_SECRET_KEY` stays in the API container. The backend validates every
+challenge through Cloudflare Siteverify and checks the `admin_login` action and
+the configured hostname.
+
+Failed-login state is stored in persistent Redis using hashed IP, account, and
+IP+account keys. CAPTCHA becomes mandatory after three incorrect passwords.
+Five incorrect passwords trigger a 15-minute block; repeated lockouts double
+the duration up to 24 hours. A successful login clears the related counters.
+If Turnstile has not been configured, the server still enforces the five-attempt
+lockout, but production must configure both keys to enforce the CAPTCHA step.
+
+Use separate Turnstile widgets for local/staging and production. See the
+[official Turnstile setup guide](https://developers.cloudflare.com/turnstile/get-started/).
 
 ## Run services without containers
 

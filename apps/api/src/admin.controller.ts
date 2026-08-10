@@ -4,12 +4,16 @@ import {
   Controller,
   Delete,
   Get,
+  HttpException,
+  HttpStatus,
+  Logger,
   NotFoundException,
   Param,
   Patch,
   Post,
   Query,
   Req,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -33,6 +37,11 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { AdminAuthGuard, AuthRequest } from './common';
+import {
+  AdminLoginSecurityState,
+  AdminLoginThrottleService,
+  TurnstileService,
+} from './admin-auth-security.service';
 import { JobsService } from './jobs.service';
 import { PrismaService } from './prisma.service';
 import { VoxService } from './vox.service';
@@ -43,6 +52,11 @@ class AdminLoginDto {
   @IsString()
   @Length(8, 200)
   password!: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 2048)
+  captchaToken?: string;
 }
 
 class AdminChangePasswordDto {
@@ -134,27 +148,126 @@ export class VoteInputDto {
 
 @Controller('admin/auth')
 export class AdminAuthController {
+  private readonly logger = new Logger('AdminSecurity');
+  private readonly dummyPasswordHash = hash('myvoice-invalid-administrator-password');
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
+    private readonly throttle: AdminLoginThrottleService,
+    private readonly turnstile: TurnstileService,
   ) {}
 
   @Post('login')
-  async login(@Body() dto: AdminLoginDto) {
-    const admin = await this.prisma.adminUser.findUnique({ where: { email: dto.email } });
-    if (!admin?.active || !(await verify(admin.passwordHash, dto.password))) {
-      throw new BadRequestException('Invalid admin credentials');
+  async login(@Req() req: AuthRequest, @Body() dto: AdminLoginDto) {
+    const email = dto.email.trim().toLowerCase();
+    const remoteIp = req.ip || req.socket.remoteAddress || 'unknown';
+    const identity = this.throttle.identity(remoteIp, email);
+    const currentState = await this.throttle.getState(identity);
+
+    if (currentState.blocked) {
+      this.securityLog('login_blocked', identity, currentState);
+      throw this.blockedError(currentState);
     }
-    await this.prisma.adminUser.update({
-      where: { id: admin.id },
-      data: { lastLoginAt: new Date() },
-    });
+
+    if (currentState.captchaRequired) {
+      if (!this.turnstile.configured) {
+        this.securityLog('captcha_required', identity, currentState, {
+          configured: false,
+        });
+      } else {
+        const captchaValid = await this.turnstile.verify(dto.captchaToken, remoteIp);
+        if (!captchaValid) {
+          this.securityLog('captcha_required', identity, currentState, { configured: true });
+          throw new HttpException(this.loginError(currentState), HttpStatus.FORBIDDEN);
+        }
+      }
+    }
+
+    const admin = await this.prisma.adminUser.findUnique({ where: { email } });
+    const passwordMatches = await verify(
+      admin?.passwordHash ?? (await this.dummyPasswordHash),
+      dto.password,
+    );
+    if (!admin?.active || !passwordMatches) {
+      const failureState = await this.throttle.recordFailure(identity);
+      this.securityLog('failed_login', identity, failureState);
+      if (failureState.blocked) {
+        this.securityLog('login_blocked', identity, failureState);
+        throw this.blockedError(failureState);
+      }
+      throw new UnauthorizedException(this.loginError(failureState));
+    }
+
+    await this.throttle.reset(identity);
+    await this.prisma.$transaction([
+      this.prisma.adminUser.update({
+        where: { id: admin.id },
+        data: { lastLoginAt: new Date() },
+      }),
+      this.prisma.adminAuditLog.create({
+        data: {
+          adminId: admin.id,
+          action: 'ADMIN_LOGIN',
+          entityType: 'AdminUser',
+          entityId: admin.id,
+          ipHash: identity.ipHash,
+        },
+      }),
+    ]);
+    this.securityLog('successful_admin_login', identity, currentState, { adminId: admin.id });
+    const ttlSeconds = Math.max(
+      300,
+      Math.min(3600, Number(process.env.ADMIN_SESSION_TTL_SECONDS ?? 900)),
+    );
     return {
       accessToken: await this.jwt.signAsync(
         { sub: admin.id, realm: 'admin' },
-        { secret: process.env.ADMIN_JWT_SECRET, expiresIn: '30m' },
+        { secret: process.env.ADMIN_JWT_SECRET, expiresIn: ttlSeconds },
       ),
     };
+  }
+
+  private loginError(state: AdminLoginSecurityState) {
+    return {
+      statusCode: state.captchaRequired ? HttpStatus.FORBIDDEN : HttpStatus.UNAUTHORIZED,
+      message: 'Неверные данные для входа',
+      captchaRequired: state.captchaRequired,
+      captchaConfigured: this.turnstile.configured,
+      captchaSiteKey:
+        state.captchaRequired && this.turnstile.configured ? this.turnstile.siteKey : undefined,
+    };
+  }
+
+  private blockedError(state: AdminLoginSecurityState) {
+    return new HttpException(
+      {
+        statusCode: HttpStatus.TOO_MANY_REQUESTS,
+        message: 'Слишком много попыток входа. Повторите позже.',
+        captchaRequired: true,
+        blocked: true,
+        retryAfterSeconds: state.retryAfterSeconds,
+      },
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
+  }
+
+  private securityLog(
+    event: 'failed_login' | 'captcha_required' | 'login_blocked' | 'successful_admin_login',
+    identity: { ipHash: string; accountHash: string },
+    state: AdminLoginSecurityState,
+    extra: Record<string, unknown> = {},
+  ) {
+    const payload = JSON.stringify({
+      event,
+      ipHash: identity.ipHash.slice(0, 16),
+      accountHash: identity.accountHash.slice(0, 16),
+      failedAttempts: state.failedAttempts,
+      retryAfterSeconds: state.retryAfterSeconds,
+      ...extra,
+    });
+    if (event === 'successful_admin_login') this.logger.log(payload);
+    else this.logger.warn(payload);
   }
 
   @Post('change-password')
@@ -226,11 +339,18 @@ export class AdminController {
     const [total, day, week, month, eligible, referrals, vox, blocked] = await Promise.all([
       this.prisma.user.count({ where: { registrationCompletedAt: { not: null } } }),
       this.prisma.user.count({ where: { lastActivityAt: { gte: new Date(now - 86_400_000) } } }),
-      this.prisma.user.count({ where: { lastActivityAt: { gte: new Date(now - 7 * 86_400_000) } } }),
-      this.prisma.user.count({ where: { lastActivityAt: { gte: new Date(now - 30 * 86_400_000) } } }),
+      this.prisma.user.count({
+        where: { lastActivityAt: { gte: new Date(now - 7 * 86_400_000) } },
+      }),
+      this.prisma.user.count({
+        where: { lastActivityAt: { gte: new Date(now - 30 * 86_400_000) } },
+      }),
       this.prisma.user.count({ where: { activityRate: { gte: 80 } } }),
       this.prisma.referral.count(),
-      this.prisma.voxTransaction.aggregate({ _sum: { amount: true }, where: { amount: { gt: 0 } } }),
+      this.prisma.voxTransaction.aggregate({
+        _sum: { amount: true },
+        where: { amount: { gt: 0 } },
+      }),
       this.prisma.user.count({ where: { status: 'BLOCKED' } }),
     ]);
     return {
@@ -309,11 +429,7 @@ export class AdminController {
   }
 
   @Post('users/:id/vox-adjustment')
-  async adjustment(
-    @Req() req: AuthRequest,
-    @Param('id') id: string,
-    @Body() dto: AdjustmentDto,
-  ) {
+  async adjustment(@Req() req: AuthRequest, @Param('id') id: string, @Body() dto: AdjustmentDto) {
     const tx = await this.prisma.$transaction((db) =>
       this.vox.award(db, {
         userId: id,
@@ -336,14 +452,22 @@ export class AdminController {
     if (!Number.isFinite(startsAt.getTime()) || endsAt <= startsAt) {
       throw new BadRequestException('Invalid UTC date range');
     }
-    if (dto.options?.length !== 2 || dto.options[0]?.position !== 1 || dto.options[1]?.position !== 2) {
+    if (
+      dto.options?.length !== 2 ||
+      dto.options[0]?.position !== 1 ||
+      dto.options[1]?.position !== 2
+    ) {
       throw new BadRequestException('Exactly two ordered options are required');
     }
     for (const language of ['en', 'ru']) {
       if (!dto.translations?.some((item) => item.language === language)) {
         throw new BadRequestException(`Missing ${language} vote translation`);
       }
-      if (dto.options.some((option) => !option.translations.some((item) => item.language === language))) {
+      if (
+        dto.options.some(
+          (option) => !option.translations.some((item) => item.language === language),
+        )
+      ) {
         throw new BadRequestException(`Missing ${language} option translation`);
       }
     }
@@ -427,7 +551,8 @@ export class AdminController {
   @Post('votes/:id/cancel')
   async cancel(@Req() req: AuthRequest, @Param('id') id: string) {
     const before = await this.prisma.vote.findUniqueOrThrow({ where: { id, deletedAt: null } });
-    if (before.status === 'COMPLETED') throw new BadRequestException('Completed result is immutable');
+    if (before.status === 'COMPLETED')
+      throw new BadRequestException('Completed result is immutable');
     const after = await this.prisma.vote.update({ where: { id }, data: { status: 'CANCELLED' } });
     await this.audit(req.adminId!, 'VOTE_CANCEL', 'Vote', id, before, after);
     return after;
