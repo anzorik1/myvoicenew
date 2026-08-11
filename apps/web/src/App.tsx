@@ -4,14 +4,11 @@ import {
   AlertTriangle,
   ArrowLeft,
   BarChart3,
-  BatteryCharging,
   Check,
-  ChevronRight,
   Clock3,
   Coins,
   Copy,
   ExternalLink,
-  Flame,
   Gift,
   History as HistoryIcon,
   Home as HomeIcon,
@@ -20,7 +17,6 @@ import {
   Megaphone,
   Play,
   Search,
-  Sparkles,
   RefreshCw,
   ShieldCheck,
   Send,
@@ -51,7 +47,7 @@ import {
   setAccessToken,
   setAdminToken,
 } from './api';
-import { hapticSuccess, hapticTap, telegramInitData } from './telegram';
+import { hapticSuccess, telegramInitData } from './telegram';
 import styles from './App.module.css';
 
 declare global {
@@ -146,21 +142,6 @@ type RewardSession = {
   remainingSeconds: number;
   expiresAt: string;
   claimed: boolean;
-};
-type TapState = {
-  energy: number;
-  energyCap: number;
-  energyRegenSeconds: number;
-  nextEnergyInSeconds: number;
-  rewardPerTap: number;
-  maxClaimTaps: number;
-  dailyEarned: number;
-  dailyLimit: number;
-  dailyRemaining: number;
-  tapTotal: number;
-  balance: number;
-  acceptedTaps?: number;
-  reward?: number;
 };
 type AdminUserSummary = {
   id: string;
@@ -522,17 +503,10 @@ function RewardedAdCard({ ad }: { ad: AdPlacement }) {
 
 function Home({ me }: { me: Me }) {
   const { t, i18n } = useTranslation();
-  const queryClient = useQueryClient();
   const current = useQuery({
     queryKey: ['current-vote'],
     queryFn: () => api<CurrentVotePayload>('/votes/current'),
     retry: 2,
-  });
-  const tapQuery = useQuery({
-    queryKey: ['tap-state'],
-    queryFn: () => api<TapState>('/tap/state'),
-    retry: 2,
-    refetchInterval: 30_000,
   });
   const ads = useQuery({
     queryKey: ['ads-current'],
@@ -540,98 +514,6 @@ function Home({ me }: { me: Me }) {
     retry: 1,
   });
   const activeVote = activeVoteFrom(current.data);
-  const [visualEnergy, setVisualEnergy] = useState(0);
-  const [visualBalance, setVisualBalance] = useState(me.balance);
-  const [visualDaily, setVisualDaily] = useState(0);
-  const [bursts, setBursts] = useState<Array<{ id: number; x: number; y: number }>>([]);
-  const energyRef = useRef(0);
-  const dailyRef = useRef(0);
-  const queueRef = useRef(0);
-  const sendingRef = useRef(false);
-  const flushTimerRef = useRef<number | null>(null);
-  const flushRef = useRef<() => void>(() => undefined);
-  const burstIdRef = useRef(0);
-
-  useEffect(() => {
-    if (!tapQuery.data) return;
-    const queued = queueRef.current;
-    const energy = Math.max(0, tapQuery.data.energy - queued);
-    energyRef.current = energy;
-    dailyRef.current = tapQuery.data.dailyEarned + queued * tapQuery.data.rewardPerTap;
-    setVisualEnergy(energy);
-    setVisualBalance(tapQuery.data.balance + queued * tapQuery.data.rewardPerTap);
-    setVisualDaily(tapQuery.data.dailyEarned + queued * tapQuery.data.rewardPerTap);
-  }, [tapQuery.data]);
-
-  flushRef.current = () => {
-    if (sendingRef.current || queueRef.current <= 0 || !tapQuery.data) return;
-    const taps = Math.min(queueRef.current, tapQuery.data.maxClaimTaps);
-    queueRef.current -= taps;
-    sendingRef.current = true;
-    void api<TapState>('/tap/claim', {
-      method: 'POST',
-      body: JSON.stringify({ taps, clientRequestId: crypto.randomUUID() }),
-    })
-      .then((state) => {
-        const queued = queueRef.current;
-        const energy = Math.max(0, state.energy - queued);
-        energyRef.current = energy;
-        dailyRef.current = state.dailyEarned + queued * state.rewardPerTap;
-        setVisualEnergy(energy);
-        setVisualBalance(state.balance + queued * state.rewardPerTap);
-        setVisualDaily(state.dailyEarned + queued * state.rewardPerTap);
-        queryClient.setQueryData(['tap-state'], state);
-        void queryClient.invalidateQueries({ queryKey: ['me'] });
-      })
-      .catch(() => {
-        queueRef.current = 0;
-        void tapQuery.refetch();
-      })
-      .finally(() => {
-        sendingRef.current = false;
-        if (queueRef.current > 0) {
-          flushTimerRef.current = window.setTimeout(() => flushRef.current(), 120);
-        }
-      });
-  };
-
-  useEffect(() => {
-    const flushWhenHidden = () => {
-      if (document.visibilityState === 'hidden') flushRef.current();
-    };
-    document.addEventListener('visibilitychange', flushWhenHidden);
-    return () => {
-      document.removeEventListener('visibilitychange', flushWhenHidden);
-      if (flushTimerRef.current) window.clearTimeout(flushTimerRef.current);
-    };
-  }, []);
-
-  const tap = (event: React.PointerEvent<HTMLButtonElement>) => {
-    const state = tapQuery.data;
-    if (!state || energyRef.current <= 0 || dailyRef.current >= state.dailyLimit) return;
-    energyRef.current -= 1;
-    dailyRef.current += state.rewardPerTap;
-    queueRef.current += 1;
-    setVisualEnergy(energyRef.current);
-    setVisualBalance((value) => value + state.rewardPerTap);
-    setVisualDaily((value) => value + state.rewardPerTap);
-    hapticTap();
-
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const id = ++burstIdRef.current;
-    setBursts((items) => [
-      ...items.slice(-7),
-      { id, x: event.clientX - bounds.left, y: event.clientY - bounds.top },
-    ]);
-    window.setTimeout(() => setBursts((items) => items.filter((item) => item.id !== id)), 720);
-
-    if (flushTimerRef.current) window.clearTimeout(flushTimerRef.current);
-    flushTimerRef.current = window.setTimeout(
-      () => flushRef.current(),
-      queueRef.current >= state.maxClaimTaps ? 50 : 650,
-    );
-  };
-
   const quickLinks = [
     {
       to: '/history',
@@ -654,103 +536,69 @@ function Home({ me }: { me: Me }) {
       value: me.referralCount,
       tone: 'coral',
     },
+    {
+      to: '/profile',
+      icon: UserRound,
+      label: t('nav.profile'),
+      value: t('home.open'),
+      tone: 'ink',
+    },
   ] as const;
-  const energyPercent = tapQuery.data
-    ? Math.max(0, Math.min(100, (visualEnergy / tapQuery.data.energyCap) * 100))
-    : 0;
-  const dailyPercent = tapQuery.data
-    ? Math.max(0, Math.min(100, (visualDaily / tapQuery.data.dailyLimit) * 100))
-    : 0;
-  const tappingDisabled =
-    !tapQuery.data || visualEnergy <= 0 || visualDaily >= (tapQuery.data?.dailyLimit ?? 0);
-
   return (
-    <div className={`${styles.stack} ${styles.tapperHome}`}>
-      <section className={styles.tapArena}>
-        <header className={styles.tapHeader}>
-          <NavLink to="/profile" className={styles.tapIdentity}>
-            <span>{me.firstName.slice(0, 1).toUpperCase()}</span>
+    <div className={`${styles.stack} ${styles.homeDashboard}`}>
+      <header className={styles.dashboardHero}>
+        <div className={styles.heroTop}>
+          <div className={styles.userBadge}>
+            <span className={styles.heroAvatar}>{me.firstName.slice(0, 1).toUpperCase()}</span>
             <div>
-              <small>{t('tap.level')}</small>
-              <strong>{me.firstName}</strong>
+              <small>MYVOICE · DAILY</small>
+              <strong>{t('home.hello', { name: me.firstName })}</strong>
             </div>
-          </NavLink>
-          <div className={styles.tapBalance}>
-            <Coins size={19} />
-            <strong>{visualBalance.toLocaleString(i18n.language)}</strong>
-            <small>VOX</small>
           </div>
-        </header>
-
-        <div className={styles.tapDailyStrip}>
-          <span>
-            <Flame size={17} /> {t('tap.dailyPower')}
-          </span>
-          <strong>
-            {visualDaily}/{tapQuery.data?.dailyLimit ?? '—'}
-          </strong>
-          <i>
-            <b style={{ width: `${dailyPercent}%` }} />
-          </i>
+          <div className={styles.voxCoin}>V</div>
         </div>
-
-        <div className={styles.reactorStage}>
-          <div className={styles.reactorHalo} aria-hidden>
-            <i />
-            <i />
-            <i />
+        <div className={styles.heroBalanceScene}>
+          <div className={styles.balanceRow}>
+            <div>
+              <small>{t('home.balance')}</small>
+              <strong>
+                {me.balance.toLocaleString(i18n.language)} <span>VOX</span>
+              </strong>
+            </div>
           </div>
-          <button
-            className={styles.voiceReactor}
-            onPointerDown={tap}
-            disabled={tappingDisabled}
-            aria-label={t('tap.tapButton')}
-          >
-            <span className={styles.reactorGrid} aria-hidden />
-            <span className={styles.reactorMark}>
-              <Sparkles size={29} />
-              <b>MV</b>
-            </span>
-            <strong>{tappingDisabled ? t('tap.rest') : t('tap.tap')}</strong>
-            <small>+{tapQuery.data?.rewardPerTap ?? 1} VOX</small>
-            {bursts.map((burst) => (
-              <i className={styles.tapBurst} key={burst.id} style={{ left: burst.x, top: burst.y }}>
-                +{tapQuery.data?.rewardPerTap ?? 1}
-              </i>
+          <div className={styles.voiceWave} aria-hidden>
+            {[42, 72, 54, 92, 64, 78, 46, 68, 38].map((height, index) => (
+              <i
+                key={index}
+                style={
+                  {
+                    '--wave-height': `${height}%`,
+                    '--wave-delay': `${index * 60}ms`,
+                  } as React.CSSProperties
+                }
+              />
             ))}
-          </button>
-          <p>{tappingDisabled ? t('tap.limitHint') : t('tap.hint')}</p>
-        </div>
-
-        <div className={styles.energyDock}>
-          <div className={styles.energyDockTop}>
-            <span>
-              <BatteryCharging size={20} />
-              {t('tap.energy')}
-            </span>
-            <strong>
-              {visualEnergy}/{tapQuery.data?.energyCap ?? '—'}
-            </strong>
           </div>
-          <div className={styles.energyTrack}>
-            <i style={{ width: `${energyPercent}%` }} />
-          </div>
-          <small>
-            {tapQuery.isError
-              ? t('tap.offline')
-              : t('tap.regen', { seconds: tapQuery.data?.energyRegenSeconds ?? 3 })}
-          </small>
         </div>
-      </section>
+        <div className={styles.heroStatusRow}>
+          <div className={styles.statusPill} data-active={me.referralProgramActive}>
+            <Activity size={16} />
+            {me.referralProgramActive ? t('home.referralOn') : t('home.referralOff')}
+          </div>
+          <div>
+            <small>{t('home.activity')}</small>
+            <strong>{Math.round(me.activityRate)}%</strong>
+          </div>
+        </div>
+      </header>
 
-      <section className={styles.tapMissions}>
+      <section className={styles.quickSection}>
         <div className={styles.sectionHeading}>
-          <span>{t('tap.missions')}</span>
-          <small>{t('tap.missionsHint')}</small>
+          <span>{t('home.quick')}</span>
         </div>
-        <div className={styles.tapMissionGrid}>
+        <div className={styles.quickGrid}>
           {quickLinks.map(({ to, icon: Icon, label, value, tone }) => (
-            <NavLink to={to} key={to} className={styles.tapMission} data-tone={tone}>
+            <NavLink to={to} key={to} className={styles.quickCard} data-tone={tone}>
               <span>
                 <Icon />
               </span>
@@ -758,15 +606,14 @@ function Home({ me }: { me: Me }) {
                 <small>{label}</small>
                 <strong>{value}</strong>
               </div>
-              <ChevronRight />
             </NavLink>
           ))}
         </div>
       </section>
 
-      <section className={styles.tapVoteMission} data-empty={!activeVote}>
+      <section className={styles.choiceCard} data-empty={!activeVote}>
         <div className={styles.sectionHeading}>
-          <span>{t('tap.mainMission')}</span>
+          <span>{t('home.todayVote')}</span>
           {activeVote && <Countdown end={activeVote.endsAt} />}
         </div>
         {current.isLoading && <div className={styles.skeleton} />}
@@ -786,24 +633,60 @@ function Home({ me }: { me: Me }) {
           </div>
         )}
         {activeVote && (
-          <div className={styles.tapVoteBody}>
-            <span className={styles.tapVoteIcon}>
-              <VoteIcon />
-            </span>
-            <div>
+          <div className={styles.choiceCardBody}>
+            <div className={styles.choiceVisual} aria-hidden>
+              <span>
+                <VoteIcon size={30} />
+              </span>
+              <div>
+                {[24, 48, 72, 44, 88, 62, 36].map((height, index) => (
+                  <i key={index} style={{ height: `${height}%` }} />
+                ))}
+              </div>
+            </div>
+            <div className={styles.choiceCopy}>
               <small>{activeVote.hasVoted ? t('vote.success') : t('home.yourVoiceMatters')}</small>
               <h2>{activeVote.title}</h2>
               <p>{activeVote.description}</p>
+              <NavLink className={styles.primary} to={`/votes/${activeVote.id}`}>
+                {activeVote.hasVoted ? t('home.viewVote') : t('home.openVote')}
+              </NavLink>
             </div>
-            <NavLink className={styles.tapVoteAction} to={`/votes/${activeVote.id}`}>
-              {activeVote.hasVoted ? t('home.viewVote') : t('home.openVote')}
-              <ChevronRight />
-            </NavLink>
           </div>
         )}
       </section>
 
       {ads.data?.banners[0] && <BannerAdCard ad={ads.data.banners[0]} />}
+
+      <section className={styles.progressSection}>
+        <div className={styles.sectionHeading}>
+          <span>{t('home.stats')}</span>
+        </div>
+        <div className={styles.insightGrid}>
+          <div className={styles.activityCard}>
+            <div>
+              <small>{t('home.activity')}</small>
+              <strong>{Math.round(me.activityRate)}%</strong>
+              <span>{me.referralProgramActive ? t('home.stable') : t('home.recover')}</span>
+            </div>
+            <Gauge rate={me.activityRate} />
+          </div>
+          <div className={styles.tallyCard} data-tone="blue">
+            <span>
+              <VoteIcon />
+            </span>
+            <small>{t('home.votes')}</small>
+            <strong>{me.ownVotes}</strong>
+          </div>
+          <div className={styles.tallyCard} data-tone="coral">
+            <span>
+              <UsersRound />
+            </span>
+            <small>{t('home.referrals')}</small>
+            <strong>{me.referralCount}</strong>
+          </div>
+        </div>
+      </section>
 
       {Boolean(ads.data?.rewarded.length) && (
         <section className={styles.rewardSection}>

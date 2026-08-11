@@ -17,7 +17,6 @@ declare global {
         };
         HapticFeedback?: {
           notificationOccurred(type: 'success' | 'error' | 'warning'): void;
-          impactOccurred?(style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft'): void;
         };
         openTelegramLink(url: string): void;
         openLink?(url: string): void;
@@ -39,4 +38,3 @@ export function initializeTelegram() {
 export const telegramInitData = () => window.Telegram?.WebApp.initData ?? '';
 export const hapticSuccess = () =>
   window.Telegram?.WebApp.HapticFeedback?.notificationOccurred('success');
-export const hapticTap = () => window.Telegram?.WebApp.HapticFeedback?.impactOccurred?.('light');

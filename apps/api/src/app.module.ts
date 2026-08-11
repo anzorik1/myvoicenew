@@ -10,7 +10,6 @@ import { MeController } from './me.controller';
 import { PrismaService } from './prisma.service';
 import { SuggestionsController } from './suggestions.controller';
 import { SystemController } from './system.controller';
-import { TapController, TapService } from './tap.controller';
 import { VotesController } from './votes.controller';
 import { VotesService } from './votes.service';
 import { VoxService } from './vox.service';
@@ -27,7 +26,6 @@ import { VoxService } from './vox.service';
     AdminController,
     AdsController,
     AdminAdsController,
-    TapController,
   ],
   providers: [
     PrismaService,
@@ -39,7 +37,6 @@ import { VoxService } from './vox.service';
     AdminLoginThrottleService,
     TurnstileService,
     AdsService,
-    TapService,
   ],
   exports: [PrismaService, VotesService],
 })

@@ -7,12 +7,6 @@ invite direct referrals, follow an activity rating, and inspect completed
 results. VOX are game points only: this repository contains no blockchain,
 withdrawal, exchange, or wallet connection.
 
-The Mini App home is tap-first: users spend regenerating energy to amplify the
-MyVoice reactor and receive bounded daily VOX rewards. Taps are submitted in
-small batches rather than as one HTTP request per press. The server locks the
-user row, applies energy and UTC-day limits, and creates one idempotent
-`TAP_REWARD` ledger transaction per batch.
-
 The repository is a pnpm monorepo:
 
 ```text
@@ -285,8 +279,6 @@ POST   /ads/:id/click
 POST   /ads/:id/reward-sessions
 POST   /ads/reward-sessions/:id/heartbeat
 POST   /ads/reward-sessions/:id/claim
-GET    /tap/state
-POST   /tap/claim
 GET    /system/features
 GET    /system/public-settings
 ```
@@ -338,11 +330,6 @@ reaches its configured threshold:
 
 The frontend reads only `/system/features` and safe public settings. It does
 not embed thresholds or secrets.
-
-Tap values are centralized in `packages/config/src/index.ts`:
-`TAP_REWARD_PER_TAP`, `TAP_ENERGY_CAP`, `TAP_ENERGY_REGEN_SECONDS`,
-`TAP_CLAIM_MAX_TAPS`, and `TAP_DAILY_REWARD_LIMIT`. The frontend receives these
-safe effective values from `/tap/state` instead of embedding them.
 
 ## Quality checks
 
