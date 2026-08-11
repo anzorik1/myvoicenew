@@ -38,6 +38,7 @@ enum VoxTransactionType {
   LOSER_REWARD
   ADMIN_ADJUSTMENT
   AD_REWARD
+  TAP_REWARD
 }
 
 enum SuggestionStatus {
@@ -71,6 +72,11 @@ model User {
   registrationCompletedAt  DateTime?        @map("registration_completed_at")
   lastActivityAt           DateTime         @default(now()) @map("last_activity_at")
   voxBalance               Int              @default(0) @map("vox_balance")
+  tapEnergy                Int              @default(500) @map("tap_energy")
+  tapEnergyUpdatedAt       DateTime         @default(now()) @map("tap_energy_updated_at")
+  tapDailyEarned           Int              @default(0) @map("tap_daily_earned")
+  tapDay                   DateTime?        @map("tap_day") @db.Date
+  tapTotal                 Int              @default(0) @map("tap_total")
   ownVotesCount            Int              @default(0) @map("own_votes_count")
   eligibleVotesCount       Int              @default(0) @map("eligible_votes_count")
   completedVotesParticipated Int            @default(0) @map("completed_votes_participated")

@@ -105,6 +105,21 @@
     "send": "Send suggestion",
     "sent": "Suggestion sent for review"
   },
+  "tap": {
+    "level": "MyVoice participant",
+    "dailyPower": "Daily voice power",
+    "tap": "TAP NOW",
+    "tapButton": "Earn VOX by tapping",
+    "rest": "REST",
+    "hint": "Tap the core and amplify your voice",
+    "limitHint": "Energy regenerates and the daily limit resets at 00:00 UTC",
+    "energy": "Energy",
+    "regen": "+1 energy every {{seconds}} sec.",
+    "offline": "Energy could not be synchronized",
+    "missions": "Missions",
+    "missionsHint": "power up your profile",
+    "mainMission": "Main mission"
+  },
   "ads": {
     "sponsored": "Sponsored",
     "rewarded": "Reward for watching",

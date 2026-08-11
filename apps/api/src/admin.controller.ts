@@ -74,6 +74,8 @@ class AdminChangePasswordDto {
 
 class AdjustmentDto {
   @IsInt()
+  @Min(-RULES.MAX_ADMIN_VOX_ADJUSTMENT)
+  @Max(RULES.MAX_ADMIN_VOX_ADJUSTMENT)
   amount!: number;
   @IsString()
   @Length(5, 500)
@@ -435,7 +437,7 @@ export class AdminController {
         userId: id,
         type: 'ADMIN_ADJUSTMENT',
         amount: dto.amount,
-        idempotencyKey: `admin:${req.adminId}:${dto.idempotencyKey}`,
+        idempotencyKey: `admin:${req.adminId}:${id}:${dto.idempotencyKey}`,
         comment: dto.comment,
       }),
     );

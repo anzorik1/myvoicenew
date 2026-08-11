@@ -1114,6 +1114,578 @@
   gap: 12px;
 }
 
+/* Tap-first MyVoice home */
+.tapperHome {
+  gap: 22px;
+}
+.tapArena {
+  --tap-cyan: #33d6e8;
+  --tap-lime: #b8f36b;
+  --tap-coral: #ff8a67;
+  position: relative;
+  overflow: hidden;
+  min-height: 664px;
+  margin: -14px -14px 0;
+  padding: max(18px, env(safe-area-inset-top)) 18px 24px;
+  border-radius: 0 0 38px 38px;
+  color: #f6fbfc;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(51, 214, 232, 0.17), transparent 29%),
+    radial-gradient(circle at 8% 12%, rgba(184, 243, 107, 0.1), transparent 25%),
+    linear-gradient(165deg, #0b2633 0%, #071a24 58%, #0b202a 100%);
+  box-shadow: 0 24px 48px rgba(3, 23, 31, 0.26);
+  isolation: isolate;
+}
+.tapArena::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  opacity: 0.12;
+  background-image:
+    linear-gradient(rgba(109, 232, 236, 0.4) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(109, 232, 236, 0.4) 1px, transparent 1px);
+  background-size: 34px 34px;
+  mask-image: radial-gradient(circle at 50% 45%, #000, transparent 66%);
+}
+.tapHeader {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.tapIdentity {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #f6fbfc;
+}
+.tapIdentity > span {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 14px;
+  color: #092731;
+  background: linear-gradient(145deg, var(--tap-lime), #65d9b5);
+  font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+  font-weight: 950;
+  box-shadow: 0 7px 18px rgba(0, 0, 0, 0.2);
+}
+.tapIdentity div {
+  min-width: 0;
+}
+.tapIdentity small,
+.tapIdentity strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tapIdentity small {
+  margin-bottom: 2px;
+  color: rgba(230, 250, 249, 0.55);
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.tapIdentity strong {
+  font-size: 14px;
+}
+.tapBalance {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  column-gap: 7px;
+  padding: 9px 12px;
+  border: 1px solid rgba(115, 224, 226, 0.18);
+  border-radius: 15px;
+  color: var(--tap-lime);
+  background: rgba(3, 20, 28, 0.54);
+  backdrop-filter: blur(12px);
+}
+.tapBalance svg {
+  grid-row: span 2;
+}
+.tapBalance strong {
+  color: #fff;
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+.tapBalance small {
+  color: rgba(230, 250, 249, 0.48);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+.tapDailyStrip {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 7px 12px;
+  margin-top: 17px;
+  padding: 11px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 17px;
+  background: rgba(255, 255, 255, 0.045);
+}
+.tapDailyStrip span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(243, 253, 252, 0.72);
+  font-size: 11px;
+  font-weight: 750;
+}
+.tapDailyStrip span svg {
+  color: var(--tap-coral);
+  fill: color-mix(in srgb, var(--tap-coral) 34%, transparent);
+}
+.tapDailyStrip strong {
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.tapDailyStrip > i {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+}
+.tapDailyStrip > i b {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--tap-coral), #ffc35f);
+  transition: width 0.2s ease;
+}
+.reactorStage {
+  position: relative;
+  z-index: 2;
+  min-height: 406px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-top: 14px;
+}
+.reactorHalo {
+  position: absolute;
+  left: 50%;
+  top: 48%;
+  width: min(86vw, 392px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.reactorHalo i {
+  position: absolute;
+  border: 1px solid rgba(51, 214, 232, 0.13);
+  border-radius: 50%;
+}
+.reactorHalo i:nth-child(1) {
+  inset: 3%;
+  border-style: dashed;
+  animation: reactorOrbit 30s linear infinite;
+}
+.reactorHalo i:nth-child(2) {
+  inset: 13%;
+  border-color: rgba(184, 243, 107, 0.14);
+  box-shadow: 0 0 45px rgba(51, 214, 232, 0.08);
+}
+.reactorHalo i:nth-child(3) {
+  inset: 23%;
+  border: 7px solid rgba(51, 214, 232, 0.045);
+}
+.voiceReactor {
+  position: relative;
+  z-index: 3;
+  overflow: visible;
+  width: min(67vw, 278px);
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: #f8ffff;
+  background:
+    radial-gradient(circle at 35% 27%, rgba(255, 255, 255, 0.22), transparent 24%),
+    radial-gradient(circle at 50% 62%, rgba(184, 243, 107, 0.16), transparent 45%),
+    linear-gradient(145deg, #157b89, #0d465a 55%, #092c3b);
+  box-shadow:
+    inset 0 0 0 2px rgba(143, 245, 233, 0.32),
+    inset 0 -24px 45px rgba(1, 16, 24, 0.35),
+    0 0 0 9px rgba(51, 214, 232, 0.075),
+    0 25px 54px rgba(0, 0, 0, 0.42);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 0.09s ease,
+    filter 0.16s ease;
+  animation: reactorBreathe 3.2s ease-in-out infinite;
+}
+.voiceReactor::before {
+  content: '';
+  position: absolute;
+  inset: 11px;
+  border: 1px solid rgba(188, 255, 239, 0.2);
+  border-radius: inherit;
+}
+.voiceReactor:not(:disabled):active {
+  transform: scale(0.94);
+  filter: brightness(1.14);
+  animation: none;
+}
+.voiceReactor:disabled {
+  cursor: not-allowed;
+  filter: saturate(0.45) brightness(0.75);
+  animation: none;
+}
+.reactorGrid {
+  position: absolute;
+  overflow: hidden;
+  inset: 15%;
+  border-radius: 50%;
+  opacity: 0.14;
+  background-image:
+    linear-gradient(rgba(210, 255, 245, 0.55) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(210, 255, 245, 0.55) 1px, transparent 1px);
+  background-size: 18px 18px;
+  mask-image: radial-gradient(circle, #000, transparent 73%);
+}
+.reactorMark {
+  position: relative;
+  width: 78px;
+  height: 78px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 9px;
+  border: 1px solid rgba(229, 255, 247, 0.3);
+  border-radius: 25px;
+  color: #092a35;
+  background: linear-gradient(145deg, #d8ffad, var(--tap-lime) 48%, #58d6ba);
+  box-shadow: 0 12px 24px rgba(0, 18, 24, 0.3);
+  transform: rotate(-4deg);
+}
+.reactorMark svg {
+  position: absolute;
+  right: 7px;
+  top: 7px;
+  width: 18px;
+}
+.reactorMark b {
+  font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+  font-size: 29px;
+  letter-spacing: -0.08em;
+}
+.voiceReactor > strong {
+  position: relative;
+  font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+  font-size: 25px;
+  font-weight: 950;
+  letter-spacing: 0.04em;
+}
+.voiceReactor > small {
+  position: relative;
+  color: var(--tap-lime);
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  font-size: 11px;
+  font-weight: 900;
+}
+.tapBurst {
+  position: absolute;
+  z-index: 7;
+  color: #dbffaf;
+  font-family: 'Trebuchet MS', sans-serif;
+  font-size: 25px;
+  font-style: normal;
+  font-weight: 950;
+  text-shadow: 0 3px 10px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  animation: tapBurst 0.72s ease-out forwards;
+}
+.reactorStage > p {
+  position: relative;
+  z-index: 4;
+  max-width: 31ch;
+  margin: 17px 0 0;
+  color: rgba(230, 250, 249, 0.55);
+  font-size: 11px;
+  line-height: 1.45;
+  text-align: center;
+}
+.energyDock {
+  position: relative;
+  z-index: 4;
+  padding: 14px 15px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 19px;
+  background: rgba(3, 19, 27, 0.66);
+  backdrop-filter: blur(15px);
+}
+.energyDockTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.energyDockTop span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: rgba(243, 253, 252, 0.75);
+  font-size: 12px;
+  font-weight: 800;
+}
+.energyDockTop svg {
+  color: var(--tap-cyan);
+}
+.energyDockTop strong {
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  font-size: 12px;
+}
+.energyTrack {
+  overflow: hidden;
+  height: 9px;
+  margin: 10px 0 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+}
+.energyTrack i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #2fbad5, var(--tap-cyan), var(--tap-lime));
+  box-shadow: 0 0 14px rgba(51, 214, 232, 0.45);
+  transition: width 0.16s ease;
+}
+.energyDock > small {
+  color: rgba(230, 250, 249, 0.45);
+  font-size: 9px;
+}
+.tapMissions {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.tapMissions .sectionHeading small {
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.tapMissionGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+.tapMission {
+  min-width: 0;
+  min-height: 126px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-content: space-between;
+  gap: 12px 5px;
+  padding: 13px;
+  border: 1px solid color-mix(in srgb, var(--tg-theme-hint-color, #78908d) 12%, transparent);
+  border-radius: 22px;
+  color: var(--tg-theme-text-color, #172927);
+  background: var(--tg-theme-secondary-bg-color, #fff);
+  box-shadow: 0 9px 25px rgba(13, 48, 50, 0.065);
+  transition: transform 0.16s ease;
+}
+.tapMission:active {
+  transform: scale(0.97);
+}
+.tapMission > span {
+  width: 39px;
+  height: 39px;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  color: #fff;
+  background: linear-gradient(145deg, #438ee8, #5361cc);
+}
+.tapMission[data-tone='teal'] > span {
+  background: linear-gradient(145deg, #25bea7, #08786f);
+}
+.tapMission[data-tone='coral'] > span {
+  background: linear-gradient(145deg, #ff9b73, #df5e69);
+}
+.tapMission > svg {
+  width: 16px;
+  color: var(--tg-theme-hint-color, #82908e);
+}
+.tapMission > div {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+.tapMission small,
+.tapMission strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tapMission small {
+  margin-bottom: 4px;
+  color: var(--tg-theme-hint-color, #71807e);
+  font-size: 10px;
+}
+.tapMission strong {
+  font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+  font-size: 22px;
+}
+.tapVoteMission {
+  overflow: hidden;
+  padding: 19px;
+  border: 1px solid color-mix(in srgb, var(--tg-theme-hint-color, #78908d) 12%, transparent);
+  border-radius: 27px;
+  background: var(--tg-theme-secondary-bg-color, #fff);
+  box-shadow: 0 14px 34px rgba(11, 47, 49, 0.08);
+}
+.tapVoteMission[data-empty='true'] {
+  background:
+    radial-gradient(
+      circle at 100% 0%,
+      color-mix(in srgb, #33d6e8 13%, transparent),
+      transparent 38%
+    ),
+    var(--tg-theme-secondary-bg-color, #fff);
+}
+.tapVoteBody {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 13px;
+  margin-top: 17px;
+}
+.tapVoteIcon {
+  width: 50px;
+  height: 50px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  color: #062f3b;
+  background: linear-gradient(145deg, #bbf58b, #58d9bb);
+}
+.tapVoteBody > div {
+  min-width: 0;
+}
+.tapVoteBody > div small {
+  color: var(--mv-teal);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.tapVoteBody h2 {
+  margin: 6px 0 7px;
+  font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+  font-size: 22px;
+  line-height: 1.16;
+  letter-spacing: -0.025em;
+}
+.tapVoteBody p {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--tg-theme-hint-color, #6e7b79);
+  font-size: 12px;
+  line-height: 1.48;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.tapVoteAction {
+  grid-column: 1 / -1;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 15px;
+  border-radius: 14px;
+  color: #eafff8;
+  background: #0b3946;
+  font-weight: 850;
+}
+.tapVoteAction svg {
+  width: 17px;
+  color: #b8f36b;
+}
+@keyframes reactorBreathe {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 0 0 2px rgba(143, 245, 233, 0.32),
+      inset 0 -24px 45px rgba(1, 16, 24, 0.35),
+      0 0 0 9px rgba(51, 214, 232, 0.075),
+      0 25px 54px rgba(0, 0, 0, 0.42);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 0 2px rgba(194, 255, 238, 0.44),
+      inset 0 -24px 45px rgba(1, 16, 24, 0.32),
+      0 0 0 13px rgba(51, 214, 232, 0.11),
+      0 25px 62px rgba(0, 0, 0, 0.45);
+  }
+}
+@keyframes reactorOrbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes tapBurst {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -30%) scale(0.65);
+  }
+  22% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -145%) scale(1.08);
+  }
+}
+@media (max-width: 380px) {
+  .tapArena {
+    min-height: 630px;
+  }
+  .reactorStage {
+    min-height: 372px;
+  }
+  .voiceReactor {
+    width: min(69vw, 248px);
+  }
+  .reactorMark {
+    width: 68px;
+    height: 68px;
+  }
+  .tapMissionGrid {
+    gap: 7px;
+  }
+  .tapMission {
+    min-height: 116px;
+    padding: 11px;
+  }
+}
+
 /* Card-first Mini App dashboard */
 .homeDashboard {
   gap: 24px;
@@ -2011,6 +2583,428 @@
   margin-top: 4px;
   color: var(--tg-theme-hint-color, #71807e);
   font-size: 10px;
+}
+
+/* VOX administrator workspace */
+.voxAdmin {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.voxAdminHero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.8fr);
+  align-items: end;
+  gap: 22px;
+  padding: 23px;
+  border-radius: 20px;
+  color: #f5fffc;
+  background:
+    radial-gradient(circle at 92% 10%, rgba(184, 243, 107, 0.24), transparent 30%),
+    linear-gradient(135deg, #102f3a, #0b6e70);
+}
+.voxAdminHero small {
+  color: #a7f1d5;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+}
+.voxAdminHero h2 {
+  margin: 5px 0;
+  font-size: 28px;
+}
+.voxAdminHero p {
+  max-width: 58ch;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.65);
+  line-height: 1.5;
+}
+.adminUserSearch {
+  min-height: 52px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 5px 5px 14px;
+  border-radius: 15px;
+  color: #0b5f5c;
+  background: #fff;
+}
+.adminUserSearch svg {
+  width: 19px;
+}
+.adminUserSearch input {
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: #1c2527;
+  background: transparent;
+}
+.adminUserSearch button {
+  align-self: stretch;
+  padding: 0 15px;
+  border: 0;
+  border-radius: 11px;
+  color: #fff;
+  background: #0b7b71;
+  font-weight: 850;
+}
+.adminUserCards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.adminUserCard {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 17px;
+  border: 1px solid #e2dee7;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(25, 22, 37, 0.05);
+}
+.adminUserAvatar {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 15px;
+  color: #063f43;
+  background: linear-gradient(145deg, #c9f89f, #65d9ba);
+  font-size: 18px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+.adminUserIdentity {
+  min-width: 0;
+}
+.adminUserIdentity small,
+.adminUserIdentity strong,
+.adminUserIdentity code {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.adminUserIdentity small {
+  color: #77727f;
+  font-size: 10px;
+}
+.adminUserIdentity strong {
+  margin: 2px 0;
+  font-size: 16px;
+}
+.adminUserIdentity code {
+  color: #8a8591;
+  font-size: 9px;
+}
+.adminUserBalance {
+  text-align: right;
+}
+.adminUserBalance small,
+.adminUserBalance strong {
+  display: block;
+}
+.adminUserBalance small {
+  color: #77727f;
+  font-size: 9px;
+}
+.adminUserBalance strong {
+  margin-top: 3px;
+  color: #08776f;
+  font-size: 15px;
+}
+.adminUserMeta {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 11px;
+  border-top: 1px solid #eeebf0;
+  color: #77727f;
+  font-size: 10px;
+}
+.adminUserMeta em {
+  padding: 5px 8px;
+  border-radius: 999px;
+  color: #176844;
+  background: #e6f8ef;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 850;
+}
+.adminUserMeta em[data-status='BLOCKED'] {
+  color: #9b2f2f;
+  background: #fff0f0;
+}
+.manageVoxButton {
+  grid-column: 1 / -1;
+  min-height: 43px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 0;
+  border-radius: 12px;
+  color: #075c55;
+  background: #e7f7f3;
+  font-weight: 850;
+}
+.manageVoxButton svg {
+  width: 17px;
+}
+.voxDialogBackdrop {
+  position: fixed;
+  z-index: 90;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(12, 15, 24, 0.7);
+  backdrop-filter: blur(6px);
+}
+.voxDialog {
+  width: min(100%, 760px);
+  max-height: min(92dvh, 850px);
+  overflow-y: auto;
+  padding: 21px;
+  border-radius: 23px;
+  color: #1c1924;
+  background: #f7f6f9;
+  box-shadow: 0 28px 80px rgba(10, 12, 20, 0.38);
+}
+.voxDialog > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 15px;
+}
+.voxDialog > header small,
+.voxDialog > header h2,
+.voxDialog > header span {
+  display: block;
+}
+.voxDialog > header small {
+  color: #08776f;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+}
+.voxDialog > header h2 {
+  margin: 3px 0;
+  font-size: 27px;
+}
+.voxDialog > header span {
+  color: #77727f;
+  font-size: 11px;
+}
+.voxDialog > header button {
+  width: 41px;
+  height: 41px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 12px;
+  color: #4f4a57;
+  background: #eae7ee;
+}
+.voxBalancePanel {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  padding: 16px;
+  border-radius: 17px;
+  color: #f5fffc;
+  background: linear-gradient(135deg, #123843, #0a7770);
+}
+.voxBalancePanel > svg {
+  width: 38px;
+  height: 38px;
+  padding: 8px;
+  border-radius: 12px;
+  color: #b8f36b;
+  background: rgba(255, 255, 255, 0.08);
+}
+.voxBalancePanel small,
+.voxBalancePanel strong {
+  display: block;
+}
+.voxBalancePanel small {
+  color: rgba(255, 255, 255, 0.55);
+}
+.voxBalancePanel strong {
+  margin-top: 3px;
+  font-size: 22px;
+}
+.voxBalancePanel button {
+  min-height: 40px;
+  padding: 0 13px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 11px;
+  color: #fff;
+  background: rgba(0, 19, 25, 0.24);
+  font-weight: 800;
+}
+.voxAdjustmentForm {
+  display: grid;
+  grid-template-columns: 0.65fr 1.35fr;
+  gap: 12px;
+  padding: 17px;
+  border: 1px solid #e1dde6;
+  border-radius: 18px;
+  background: #fff;
+}
+.voxAdjustmentForm label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #504b58;
+  font-size: 11px;
+  font-weight: 800;
+}
+.voxAdjustmentForm input,
+.voxAdjustmentForm textarea {
+  width: 100%;
+  border: 1px solid #dcd8e2;
+  border-radius: 12px;
+  padding: 12px;
+  color: #1c1924;
+  background: #fff;
+}
+.voxAdjustmentForm textarea {
+  min-height: 76px;
+  resize: vertical;
+}
+.voxModeSwitch {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 5px;
+  border-radius: 13px;
+  background: #efecf2;
+}
+.voxModeSwitch button {
+  min-height: 41px;
+  border: 0;
+  border-radius: 10px;
+  color: #6c6772;
+  background: transparent;
+  font-weight: 850;
+}
+.voxModeSwitch button[data-active='true'] {
+  color: #075d56;
+  background: #fff;
+  box-shadow: 0 3px 10px rgba(27, 23, 35, 0.07);
+}
+.voxAdjustmentForm > .primary,
+.voxAdjustmentForm > .voxSuccess,
+.voxAdjustmentForm > .errorText {
+  grid-column: 1 / -1;
+}
+.voxSuccess {
+  padding: 10px 12px;
+  border-radius: 11px;
+  color: #176844;
+  background: #e6f8ef;
+  font-size: 11px;
+  font-weight: 750;
+}
+.voxLedger {
+  margin-top: 18px;
+  overflow: hidden;
+  border: 1px solid #e1dde6;
+  border-radius: 18px;
+  background: #fff;
+}
+.voxLedgerHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 15px;
+  border-bottom: 1px solid #ebe8ee;
+}
+.voxLedgerHeading small {
+  color: #77727f;
+}
+.voxLedger > div:not(.voxLedgerHeading):not(.skeleton) {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 15px;
+  border-bottom: 1px solid #f0edf2;
+}
+.voxLedger > div:last-child {
+  border-bottom: 0;
+}
+.voxLedger > div > span {
+  color: #a63333;
+  font-family: ui-monospace, Consolas, monospace;
+  font-weight: 900;
+}
+.voxLedger > div > span[data-positive='true'] {
+  color: #12825d;
+}
+.voxLedger > div > div {
+  min-width: 0;
+}
+.voxLedger > div > div strong,
+.voxLedger > div > div small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.voxLedger > div > div strong {
+  font-size: 11px;
+}
+.voxLedger > div > div small,
+.voxLedger time {
+  color: #827d88;
+  font-size: 9px;
+}
+.voxLedger > p {
+  padding: 15px;
+}
+@media (max-width: 880px) {
+  .voxAdminHero,
+  .adminUserCards {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 560px) {
+  .voxDialogBackdrop {
+    padding: 0;
+    align-items: end;
+  }
+  .voxDialog {
+    max-height: 94dvh;
+    border-radius: 25px 25px 0 0;
+  }
+  .voxBalancePanel {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .voxBalancePanel button {
+    grid-column: 1 / -1;
+  }
+  .voxAdjustmentForm {
+    grid-template-columns: 1fr;
+  }
+  .voxAdjustmentForm label {
+    grid-column: 1;
+  }
+  .voxLedger > div:not(.voxLedgerHeading):not(.skeleton) {
+    grid-template-columns: 46px minmax(0, 1fr);
+  }
+  .voxLedger time {
+    grid-column: 2;
+  }
 }
 
 /* Advertising manager */

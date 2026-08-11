@@ -4,10 +4,14 @@ import {
   AlertTriangle,
   ArrowLeft,
   BarChart3,
+  BatteryCharging,
   Check,
+  ChevronRight,
   Clock3,
+  Coins,
   Copy,
   ExternalLink,
+  Flame,
   Gift,
   History as HistoryIcon,
   Home as HomeIcon,
@@ -15,6 +19,8 @@ import {
   Lightbulb,
   Megaphone,
   Play,
+  Search,
+  Sparkles,
   RefreshCw,
   ShieldCheck,
   Send,
@@ -23,6 +29,7 @@ import {
   UserRound,
   UsersRound,
   Vote as VoteIcon,
+  X,
 } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -44,7 +51,7 @@ import {
   setAccessToken,
   setAdminToken,
 } from './api';
-import { hapticSuccess, telegramInitData } from './telegram';
+import { hapticSuccess, hapticTap, telegramInitData } from './telegram';
 import styles from './App.module.css';
 
 declare global {
@@ -139,6 +146,40 @@ type RewardSession = {
   remainingSeconds: number;
   expiresAt: string;
   claimed: boolean;
+};
+type TapState = {
+  energy: number;
+  energyCap: number;
+  energyRegenSeconds: number;
+  nextEnergyInSeconds: number;
+  rewardPerTap: number;
+  maxClaimTaps: number;
+  dailyEarned: number;
+  dailyLimit: number;
+  dailyRemaining: number;
+  tapTotal: number;
+  balance: number;
+  acceptedTaps?: number;
+  reward?: number;
+};
+type AdminUserSummary = {
+  id: string;
+  telegramId: string;
+  username?: string;
+  firstName: string;
+  status: string;
+  voxBalance: number;
+  activityRate: number | string;
+  createdAt: string;
+};
+type AdminVoxTransaction = {
+  id: string;
+  type: string;
+  amount: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  comment: string;
+  createdAt: string;
 };
 type AdminAd = {
   id: string;
@@ -481,10 +522,17 @@ function RewardedAdCard({ ad }: { ad: AdPlacement }) {
 
 function Home({ me }: { me: Me }) {
   const { t, i18n } = useTranslation();
+  const queryClient = useQueryClient();
   const current = useQuery({
     queryKey: ['current-vote'],
     queryFn: () => api<CurrentVotePayload>('/votes/current'),
     retry: 2,
+  });
+  const tapQuery = useQuery({
+    queryKey: ['tap-state'],
+    queryFn: () => api<TapState>('/tap/state'),
+    retry: 2,
+    refetchInterval: 30_000,
   });
   const ads = useQuery({
     queryKey: ['ads-current'],
@@ -492,6 +540,98 @@ function Home({ me }: { me: Me }) {
     retry: 1,
   });
   const activeVote = activeVoteFrom(current.data);
+  const [visualEnergy, setVisualEnergy] = useState(0);
+  const [visualBalance, setVisualBalance] = useState(me.balance);
+  const [visualDaily, setVisualDaily] = useState(0);
+  const [bursts, setBursts] = useState<Array<{ id: number; x: number; y: number }>>([]);
+  const energyRef = useRef(0);
+  const dailyRef = useRef(0);
+  const queueRef = useRef(0);
+  const sendingRef = useRef(false);
+  const flushTimerRef = useRef<number | null>(null);
+  const flushRef = useRef<() => void>(() => undefined);
+  const burstIdRef = useRef(0);
+
+  useEffect(() => {
+    if (!tapQuery.data) return;
+    const queued = queueRef.current;
+    const energy = Math.max(0, tapQuery.data.energy - queued);
+    energyRef.current = energy;
+    dailyRef.current = tapQuery.data.dailyEarned + queued * tapQuery.data.rewardPerTap;
+    setVisualEnergy(energy);
+    setVisualBalance(tapQuery.data.balance + queued * tapQuery.data.rewardPerTap);
+    setVisualDaily(tapQuery.data.dailyEarned + queued * tapQuery.data.rewardPerTap);
+  }, [tapQuery.data]);
+
+  flushRef.current = () => {
+    if (sendingRef.current || queueRef.current <= 0 || !tapQuery.data) return;
+    const taps = Math.min(queueRef.current, tapQuery.data.maxClaimTaps);
+    queueRef.current -= taps;
+    sendingRef.current = true;
+    void api<TapState>('/tap/claim', {
+      method: 'POST',
+      body: JSON.stringify({ taps, clientRequestId: crypto.randomUUID() }),
+    })
+      .then((state) => {
+        const queued = queueRef.current;
+        const energy = Math.max(0, state.energy - queued);
+        energyRef.current = energy;
+        dailyRef.current = state.dailyEarned + queued * state.rewardPerTap;
+        setVisualEnergy(energy);
+        setVisualBalance(state.balance + queued * state.rewardPerTap);
+        setVisualDaily(state.dailyEarned + queued * state.rewardPerTap);
+        queryClient.setQueryData(['tap-state'], state);
+        void queryClient.invalidateQueries({ queryKey: ['me'] });
+      })
+      .catch(() => {
+        queueRef.current = 0;
+        void tapQuery.refetch();
+      })
+      .finally(() => {
+        sendingRef.current = false;
+        if (queueRef.current > 0) {
+          flushTimerRef.current = window.setTimeout(() => flushRef.current(), 120);
+        }
+      });
+  };
+
+  useEffect(() => {
+    const flushWhenHidden = () => {
+      if (document.visibilityState === 'hidden') flushRef.current();
+    };
+    document.addEventListener('visibilitychange', flushWhenHidden);
+    return () => {
+      document.removeEventListener('visibilitychange', flushWhenHidden);
+      if (flushTimerRef.current) window.clearTimeout(flushTimerRef.current);
+    };
+  }, []);
+
+  const tap = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const state = tapQuery.data;
+    if (!state || energyRef.current <= 0 || dailyRef.current >= state.dailyLimit) return;
+    energyRef.current -= 1;
+    dailyRef.current += state.rewardPerTap;
+    queueRef.current += 1;
+    setVisualEnergy(energyRef.current);
+    setVisualBalance((value) => value + state.rewardPerTap);
+    setVisualDaily((value) => value + state.rewardPerTap);
+    hapticTap();
+
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const id = ++burstIdRef.current;
+    setBursts((items) => [
+      ...items.slice(-7),
+      { id, x: event.clientX - bounds.left, y: event.clientY - bounds.top },
+    ]);
+    window.setTimeout(() => setBursts((items) => items.filter((item) => item.id !== id)), 720);
+
+    if (flushTimerRef.current) window.clearTimeout(flushTimerRef.current);
+    flushTimerRef.current = window.setTimeout(
+      () => flushRef.current(),
+      queueRef.current >= state.maxClaimTaps ? 50 : 650,
+    );
+  };
+
   const quickLinks = [
     {
       to: '/history',
@@ -514,69 +654,103 @@ function Home({ me }: { me: Me }) {
       value: me.referralCount,
       tone: 'coral',
     },
-    {
-      to: '/profile',
-      icon: UserRound,
-      label: t('nav.profile'),
-      value: t('home.open'),
-      tone: 'ink',
-    },
   ] as const;
-  return (
-    <div className={`${styles.stack} ${styles.homeDashboard}`}>
-      <header className={styles.dashboardHero}>
-        <div className={styles.heroTop}>
-          <div className={styles.userBadge}>
-            <span className={styles.heroAvatar}>{me.firstName.slice(0, 1).toUpperCase()}</span>
-            <div>
-              <small>MYVOICE · DAILY</small>
-              <strong>{t('home.hello', { name: me.firstName })}</strong>
-            </div>
-          </div>
-          <div className={styles.voxCoin}>V</div>
-        </div>
-        <div className={styles.heroBalanceScene}>
-          <div className={styles.balanceRow}>
-            <div>
-              <small>{t('home.balance')}</small>
-              <strong>
-                {me.balance.toLocaleString(i18n.language)} <span>VOX</span>
-              </strong>
-            </div>
-          </div>
-          <div className={styles.voiceWave} aria-hidden>
-            {[42, 72, 54, 92, 64, 78, 46, 68, 38].map((height, index) => (
-              <i
-                key={index}
-                style={
-                  {
-                    '--wave-height': `${height}%`,
-                    '--wave-delay': `${index * 60}ms`,
-                  } as React.CSSProperties
-                }
-              />
-            ))}
-          </div>
-        </div>
-        <div className={styles.heroStatusRow}>
-          <div className={styles.statusPill} data-active={me.referralProgramActive}>
-            <Activity size={16} />
-            {me.referralProgramActive ? t('home.referralOn') : t('home.referralOff')}
-          </div>
-          <div>
-            <small>{t('home.activity')}</small>
-            <strong>{Math.round(me.activityRate)}%</strong>
-          </div>
-        </div>
-      </header>
+  const energyPercent = tapQuery.data
+    ? Math.max(0, Math.min(100, (visualEnergy / tapQuery.data.energyCap) * 100))
+    : 0;
+  const dailyPercent = tapQuery.data
+    ? Math.max(0, Math.min(100, (visualDaily / tapQuery.data.dailyLimit) * 100))
+    : 0;
+  const tappingDisabled =
+    !tapQuery.data || visualEnergy <= 0 || visualDaily >= (tapQuery.data?.dailyLimit ?? 0);
 
-      <section className={styles.quickSection}>
-        <div className={styles.sectionHeading}>
-          <span>{t('home.quick')}</span>
+  return (
+    <div className={`${styles.stack} ${styles.tapperHome}`}>
+      <section className={styles.tapArena}>
+        <header className={styles.tapHeader}>
+          <NavLink to="/profile" className={styles.tapIdentity}>
+            <span>{me.firstName.slice(0, 1).toUpperCase()}</span>
+            <div>
+              <small>{t('tap.level')}</small>
+              <strong>{me.firstName}</strong>
+            </div>
+          </NavLink>
+          <div className={styles.tapBalance}>
+            <Coins size={19} />
+            <strong>{visualBalance.toLocaleString(i18n.language)}</strong>
+            <small>VOX</small>
+          </div>
+        </header>
+
+        <div className={styles.tapDailyStrip}>
+          <span>
+            <Flame size={17} /> {t('tap.dailyPower')}
+          </span>
+          <strong>
+            {visualDaily}/{tapQuery.data?.dailyLimit ?? '—'}
+          </strong>
+          <i>
+            <b style={{ width: `${dailyPercent}%` }} />
+          </i>
         </div>
-        <div className={styles.quickGrid}>
+
+        <div className={styles.reactorStage}>
+          <div className={styles.reactorHalo} aria-hidden>
+            <i />
+            <i />
+            <i />
+          </div>
+          <button
+            className={styles.voiceReactor}
+            onPointerDown={tap}
+            disabled={tappingDisabled}
+            aria-label={t('tap.tapButton')}
+          >
+            <span className={styles.reactorGrid} aria-hidden />
+            <span className={styles.reactorMark}>
+              <Sparkles size={29} />
+              <b>MV</b>
+            </span>
+            <strong>{tappingDisabled ? t('tap.rest') : t('tap.tap')}</strong>
+            <small>+{tapQuery.data?.rewardPerTap ?? 1} VOX</small>
+            {bursts.map((burst) => (
+              <i className={styles.tapBurst} key={burst.id} style={{ left: burst.x, top: burst.y }}>
+                +{tapQuery.data?.rewardPerTap ?? 1}
+              </i>
+            ))}
+          </button>
+          <p>{tappingDisabled ? t('tap.limitHint') : t('tap.hint')}</p>
+        </div>
+
+        <div className={styles.energyDock}>
+          <div className={styles.energyDockTop}>
+            <span>
+              <BatteryCharging size={20} />
+              {t('tap.energy')}
+            </span>
+            <strong>
+              {visualEnergy}/{tapQuery.data?.energyCap ?? '—'}
+            </strong>
+          </div>
+          <div className={styles.energyTrack}>
+            <i style={{ width: `${energyPercent}%` }} />
+          </div>
+          <small>
+            {tapQuery.isError
+              ? t('tap.offline')
+              : t('tap.regen', { seconds: tapQuery.data?.energyRegenSeconds ?? 3 })}
+          </small>
+        </div>
+      </section>
+
+      <section className={styles.tapMissions}>
+        <div className={styles.sectionHeading}>
+          <span>{t('tap.missions')}</span>
+          <small>{t('tap.missionsHint')}</small>
+        </div>
+        <div className={styles.tapMissionGrid}>
           {quickLinks.map(({ to, icon: Icon, label, value, tone }) => (
-            <NavLink to={to} key={to} className={styles.quickCard} data-tone={tone}>
+            <NavLink to={to} key={to} className={styles.tapMission} data-tone={tone}>
               <span>
                 <Icon />
               </span>
@@ -584,14 +758,15 @@ function Home({ me }: { me: Me }) {
                 <small>{label}</small>
                 <strong>{value}</strong>
               </div>
+              <ChevronRight />
             </NavLink>
           ))}
         </div>
       </section>
 
-      <section className={styles.choiceCard} data-empty={!activeVote}>
+      <section className={styles.tapVoteMission} data-empty={!activeVote}>
         <div className={styles.sectionHeading}>
-          <span>{t('home.todayVote')}</span>
+          <span>{t('tap.mainMission')}</span>
           {activeVote && <Countdown end={activeVote.endsAt} />}
         </div>
         {current.isLoading && <div className={styles.skeleton} />}
@@ -611,60 +786,24 @@ function Home({ me }: { me: Me }) {
           </div>
         )}
         {activeVote && (
-          <div className={styles.choiceCardBody}>
-            <div className={styles.choiceVisual} aria-hidden>
-              <span>
-                <VoteIcon size={30} />
-              </span>
-              <div>
-                {[24, 48, 72, 44, 88, 62, 36].map((height, index) => (
-                  <i key={index} style={{ height: `${height}%` }} />
-                ))}
-              </div>
-            </div>
-            <div className={styles.choiceCopy}>
+          <div className={styles.tapVoteBody}>
+            <span className={styles.tapVoteIcon}>
+              <VoteIcon />
+            </span>
+            <div>
               <small>{activeVote.hasVoted ? t('vote.success') : t('home.yourVoiceMatters')}</small>
               <h2>{activeVote.title}</h2>
               <p>{activeVote.description}</p>
-              <NavLink className={styles.primary} to={`/votes/${activeVote.id}`}>
-                {activeVote.hasVoted ? t('home.viewVote') : t('home.openVote')}
-              </NavLink>
             </div>
+            <NavLink className={styles.tapVoteAction} to={`/votes/${activeVote.id}`}>
+              {activeVote.hasVoted ? t('home.viewVote') : t('home.openVote')}
+              <ChevronRight />
+            </NavLink>
           </div>
         )}
       </section>
 
       {ads.data?.banners[0] && <BannerAdCard ad={ads.data.banners[0]} />}
-
-      <section className={styles.progressSection}>
-        <div className={styles.sectionHeading}>
-          <span>{t('home.stats')}</span>
-        </div>
-        <div className={styles.insightGrid}>
-          <div className={styles.activityCard}>
-            <div>
-              <small>{t('home.activity')}</small>
-              <strong>{Math.round(me.activityRate)}%</strong>
-              <span>{me.referralProgramActive ? t('home.stable') : t('home.recover')}</span>
-            </div>
-            <Gauge rate={me.activityRate} />
-          </div>
-          <div className={styles.tallyCard} data-tone="blue">
-            <span>
-              <VoteIcon />
-            </span>
-            <small>{t('home.votes')}</small>
-            <strong>{me.ownVotes}</strong>
-          </div>
-          <div className={styles.tallyCard} data-tone="coral">
-            <span>
-              <UsersRound />
-            </span>
-            <small>{t('home.referrals')}</small>
-            <strong>{me.referralCount}</strong>
-          </div>
-        </div>
-      </section>
 
       {Boolean(ads.data?.rewarded.length) && (
         <section className={styles.rewardSection}>
@@ -1383,10 +1522,6 @@ function AdminDashboard() {
     queryKey: ['admin-metrics'],
     queryFn: () => api<Record<string, number>>('/admin/metrics', {}, true),
   });
-  const users = useQuery({
-    queryKey: ['admin-users'],
-    queryFn: () => api<{ items: Array<Record<string, any>> }>('/admin/users', {}, true),
-  });
   const votes = useQuery({
     queryKey: ['admin-votes'],
     queryFn: () => api<AdminVote[]>('/admin/votes', {}, true),
@@ -1436,22 +1571,7 @@ function AdminDashboard() {
             ))}
           </div>
         )}
-        {tab === 'users' && (
-          <div className={styles.adminTable}>
-            {users.data?.items.map((user) => (
-              <div key={user.id}>
-                <span>
-                  {user.firstName}
-                  <small>@{user.username ?? '—'}</small>
-                </span>
-                <code>{user.telegramId}</code>
-                <strong>{user.voxBalance} VOX</strong>
-                <span>{Number(user.activityRate)}%</span>
-                <em>{user.status}</em>
-              </div>
-            ))}
-          </div>
-        )}
+        {tab === 'users' && <AdminUsersManager />}
         {tab === 'votes' && (
           <>
             <VoteComposer onSaved={() => void votes.refetch()} />
@@ -1483,6 +1603,246 @@ function AdminDashboard() {
         {tab === 'security' && <SecurityPanel />}
       </main>
     </div>
+  );
+}
+
+function AdminUsersManager() {
+  const [draftSearch, setDraftSearch] = useState('');
+  const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState<AdminUserSummary | null>(null);
+  const users = useQuery({
+    queryKey: ['admin-users', search],
+    queryFn: () =>
+      api<{ items: AdminUserSummary[] }>(
+        `/admin/users${search ? `?search=${encodeURIComponent(search)}` : ''}`,
+        {},
+        true,
+      ),
+  });
+  const refresh = () => {
+    void users.refetch();
+  };
+  return (
+    <section className={styles.voxAdmin}>
+      <div className={styles.voxAdminHero}>
+        <div>
+          <small>VOX CONTROL</small>
+          <h2>User balances</h2>
+          <p>Find a user, add or remove VOX, and inspect the immutable transaction history.</p>
+        </div>
+        <form
+          className={styles.adminUserSearch}
+          onSubmit={(event) => {
+            event.preventDefault();
+            setSearch(draftSearch.trim());
+          }}
+        >
+          <Search />
+          <input
+            value={draftSearch}
+            onChange={(event) => setDraftSearch(event.target.value)}
+            placeholder="Telegram ID, @username or UUID"
+          />
+          <button>Search</button>
+        </form>
+      </div>
+      {users.isLoading && <div className={styles.skeleton} />}
+      {users.error && <ErrorState error={users.error} />}
+      <div className={styles.adminUserCards}>
+        {users.data?.items.map((user) => (
+          <article className={styles.adminUserCard} key={user.id}>
+            <span className={styles.adminUserAvatar}>{user.firstName.slice(0, 1)}</span>
+            <div className={styles.adminUserIdentity}>
+              <small>@{user.username ?? '—'}</small>
+              <strong>{user.firstName}</strong>
+              <code>{user.telegramId}</code>
+            </div>
+            <div className={styles.adminUserBalance}>
+              <small>Balance</small>
+              <strong>{user.voxBalance.toLocaleString()} VOX</strong>
+            </div>
+            <div className={styles.adminUserMeta}>
+              <span>Activity {Number(user.activityRate)}%</span>
+              <em data-status={user.status}>{user.status}</em>
+            </div>
+            <button className={styles.manageVoxButton} onClick={() => setSelected(user)}>
+              <Coins /> Manage VOX
+            </button>
+          </article>
+        ))}
+        {!users.isLoading && !users.data?.items.length && (
+          <div className={styles.adminEmpty}>No users match this search.</div>
+        )}
+      </div>
+      {selected && (
+        <VoxManagerDialog
+          user={selected}
+          onClose={() => setSelected(null)}
+          onChanged={(balance, status) => {
+            setSelected((current) =>
+              current
+                ? { ...current, voxBalance: balance, status: status ?? current.status }
+                : null,
+            );
+            refresh();
+          }}
+        />
+      )}
+    </section>
+  );
+}
+
+function VoxManagerDialog({
+  user,
+  onClose,
+  onChanged,
+}: {
+  user: AdminUserSummary;
+  onClose: () => void;
+  onChanged: (balance: number, status?: string) => void;
+}) {
+  const [mode, setMode] = useState<'ADD' | 'REMOVE'>('ADD');
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const ledger = useQuery({
+    queryKey: ['admin-vox-ledger', user.id],
+    queryFn: () => api<AdminVoxTransaction[]>(`/admin/users/${user.id}/vox-transactions`, {}, true),
+  });
+  const adjust = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const absolute = Math.abs(Number(form.get('amount')));
+    if (!Number.isInteger(absolute) || absolute <= 0) {
+      setError('Enter a whole VOX amount greater than zero.');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    setMessage('');
+    try {
+      const transaction = await api<AdminVoxTransaction>(
+        `/admin/users/${user.id}/vox-adjustment`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            amount: mode === 'ADD' ? absolute : -absolute,
+            comment: String(form.get('comment') ?? '').trim(),
+            idempotencyKey: crypto.randomUUID(),
+          }),
+        },
+        true,
+      );
+      setMessage(
+        `${mode === 'ADD' ? 'Added' : 'Removed'} ${absolute.toLocaleString()} VOX. New balance: ${transaction.balanceAfter.toLocaleString()} VOX.`,
+      );
+      onChanged(transaction.balanceAfter);
+      event.currentTarget.reset();
+      void ledger.refetch();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setSaving(false);
+    }
+  };
+  const toggleBlock = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      const next = user.status === 'BLOCKED' ? 'ACTIVE' : 'BLOCKED';
+      await api(
+        `/admin/users/${user.id}/${user.status === 'BLOCKED' ? 'unblock' : 'block'}`,
+        { method: 'POST' },
+        true,
+      );
+      onChanged(user.voxBalance, next);
+      setMessage(next === 'BLOCKED' ? 'User blocked.' : 'User unblocked.');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setSaving(false);
+    }
+  };
+  return createPortal(
+    <div className={styles.voxDialogBackdrop} role="presentation">
+      <section className={styles.voxDialog} role="dialog" aria-modal="true">
+        <header>
+          <div>
+            <small>MANAGE USER</small>
+            <h2>{user.firstName}</h2>
+            <span>
+              @{user.username ?? '—'} · {user.telegramId}
+            </span>
+          </div>
+          <button onClick={onClose} aria-label="Close">
+            <X />
+          </button>
+        </header>
+        <div className={styles.voxBalancePanel}>
+          <Coins />
+          <div>
+            <small>Current balance</small>
+            <strong>{user.voxBalance.toLocaleString()} VOX</strong>
+          </div>
+          <button disabled={saving} onClick={() => void toggleBlock()}>
+            {user.status === 'BLOCKED' ? 'Unblock' : 'Block user'}
+          </button>
+        </div>
+        <form className={styles.voxAdjustmentForm} onSubmit={adjust}>
+          <div className={styles.voxModeSwitch}>
+            <button type="button" data-active={mode === 'ADD'} onClick={() => setMode('ADD')}>
+              Add VOX
+            </button>
+            <button type="button" data-active={mode === 'REMOVE'} onClick={() => setMode('REMOVE')}>
+              Remove VOX
+            </button>
+          </div>
+          <label>
+            Amount
+            <input name="amount" type="number" min="1" step="1" required />
+          </label>
+          <label>
+            Required reason
+            <textarea
+              name="comment"
+              minLength={5}
+              maxLength={500}
+              placeholder="Why is this balance being changed?"
+              required
+            />
+          </label>
+          <button className={styles.primary} disabled={saving}>
+            {saving ? 'Saving…' : mode === 'ADD' ? 'Add VOX' : 'Remove VOX'}
+          </button>
+          {message && <span className={styles.voxSuccess}>{message}</span>}
+          {error && <span className={styles.errorText}>{error}</span>}
+        </form>
+        <div className={styles.voxLedger}>
+          <div className={styles.voxLedgerHeading}>
+            <strong>VOX transaction history</strong>
+            <small>Immutable ledger</small>
+          </div>
+          {ledger.isLoading && <div className={styles.skeleton} />}
+          {ledger.data?.map((transaction) => (
+            <div key={transaction.id}>
+              <span data-positive={transaction.amount > 0}>
+                {transaction.amount > 0 ? '+' : ''}
+                {transaction.amount}
+              </span>
+              <div>
+                <strong>{transaction.type.replaceAll('_', ' ')}</strong>
+                <small>{transaction.comment}</small>
+              </div>
+              <time>{dateTime(transaction.createdAt, 'en')}</time>
+            </div>
+          ))}
+          {!ledger.isLoading && !ledger.data?.length && (
+            <p className={styles.adminEmpty}>No VOX transactions yet.</p>
+          )}
+        </div>
+      </section>
+    </div>,
+    document.body,
   );
 }
 
