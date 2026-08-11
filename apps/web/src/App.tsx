@@ -224,6 +224,37 @@ function Countdown({ end }: { end: string }) {
   );
 }
 
+function VoteSignal({ start, end }: { start: string; end: string }) {
+  const { t } = useTranslation();
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const startTime = new Date(start).getTime();
+  const endTime = new Date(end).getTime();
+  const duration = Math.max(1, endTime - startTime);
+  const progress = Math.max(0, Math.min(100, ((now - startTime) / duration) * 100));
+  const bars = [30, 55, 38, 74, 46, 88, 52, 68, 36, 62, 42, 78, 48, 58, 32];
+  return (
+    <div
+      className={styles.arenaSignal}
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(progress)}
+      aria-label={t('vote.timeline')}
+    >
+      <div aria-hidden>
+        {bars.map((height, index) => (
+          <span key={index} style={{ '--signal-height': `${height}%` } as React.CSSProperties} />
+        ))}
+      </div>
+      <i style={{ width: `${progress}%` }} />
+    </div>
+  );
+}
+
 function Gauge({ rate }: { rate: number }) {
   const { t } = useTranslation();
   const bounded = Math.max(0, Math.min(100, rate));
@@ -501,7 +532,7 @@ function RewardedAdCard({ ad }: { ad: AdPlacement }) {
   );
 }
 
-function Home({ me }: { me: Me }) {
+function Home({ me, voteReward }: { me: Me; voteReward: number }) {
   const { t, i18n } = useTranslation();
   const current = useQuery({
     queryKey: ['current-vote'],
@@ -526,7 +557,7 @@ function Home({ me }: { me: Me }) {
       to: '/rating',
       icon: BarChart3,
       label: t('nav.rating'),
-      value: `${Math.round(me.activityRate)}%`,
+      value: Math.round(me.activityRate) + '%',
       tone: 'teal',
     },
     {
@@ -536,69 +567,107 @@ function Home({ me }: { me: Me }) {
       value: me.referralCount,
       tone: 'coral',
     },
-    {
-      to: '/profile',
-      icon: UserRound,
-      label: t('nav.profile'),
-      value: t('home.open'),
-      tone: 'ink',
-    },
   ] as const;
   return (
-    <div className={`${styles.stack} ${styles.homeDashboard}`}>
-      <header className={styles.dashboardHero}>
-        <div className={styles.heroTop}>
-          <div className={styles.userBadge}>
-            <span className={styles.heroAvatar}>{me.firstName.slice(0, 1).toUpperCase()}</span>
-            <div>
-              <small>MYVOICE · DAILY</small>
-              <strong>{t('home.hello', { name: me.firstName })}</strong>
-            </div>
-          </div>
-          <div className={styles.voxCoin}>V</div>
-        </div>
-        <div className={styles.heroBalanceScene}>
-          <div className={styles.balanceRow}>
-            <div>
-              <small>{t('home.balance')}</small>
-              <strong>
-                {me.balance.toLocaleString(i18n.language)} <span>VOX</span>
-              </strong>
-            </div>
-          </div>
-          <div className={styles.voiceWave} aria-hidden>
-            {[42, 72, 54, 92, 64, 78, 46, 68, 38].map((height, index) => (
-              <i
-                key={index}
-                style={
-                  {
-                    '--wave-height': `${height}%`,
-                    '--wave-delay': `${index * 60}ms`,
-                  } as React.CSSProperties
-                }
-              />
-            ))}
-          </div>
-        </div>
-        <div className={styles.heroStatusRow}>
-          <div className={styles.statusPill} data-active={me.referralProgramActive}>
-            <Activity size={16} />
-            {me.referralProgramActive ? t('home.referralOn') : t('home.referralOff')}
-          </div>
+    <div className={[styles.stack, styles.voiceArenaHome].join(' ')}>
+      <header className={styles.arenaTopbar}>
+        <NavLink to="/profile" className={styles.arenaIdentity}>
+          <span>{me.firstName.slice(0, 1).toUpperCase()}</span>
           <div>
-            <small>{t('home.activity')}</small>
-            <strong>{Math.round(me.activityRate)}%</strong>
+            <small>{t('home.arenaEyebrow')}</small>
+            <strong>{me.firstName}</strong>
           </div>
+        </NavLink>
+        <div className={styles.arenaBalance}>
+          <Coins size={17} />
+          <strong>{me.balance.toLocaleString(i18n.language)}</strong>
+          <small>VOX</small>
         </div>
       </header>
 
-      <section className={styles.quickSection}>
-        <div className={styles.sectionHeading}>
-          <span>{t('home.quick')}</span>
+      <section className={styles.arenaStatusRail}>
+        <div>
+          <small>{t('home.activity')}</small>
+          <strong>{Math.round(me.activityRate)}%</strong>
+          <i>
+            <span style={{ width: Math.round(me.activityRate) + '%' }} />
+          </i>
         </div>
-        <div className={styles.quickGrid}>
+        <div>
+          <small>{t('home.participation')}</small>
+          <strong>
+            {me.participatedVotes}/{me.eligibleVotes}
+          </strong>
+        </div>
+        <div data-active={me.referralProgramActive}>
+          <Activity size={16} />
+          <span>
+            {me.referralProgramActive ? t('home.referralOn') : t('home.referralOff')}
+          </span>
+        </div>
+      </section>
+
+      <section className={styles.arenaVoteCard} data-empty={!activeVote}>
+        <div className={styles.arenaVoteMeta}>
+          <span>
+            <VoteIcon size={15} />
+            {t('home.todayVote')}
+          </span>
+          {activeVote && <Countdown end={activeVote.endsAt} />}
+        </div>
+
+        {current.isLoading && <div className={styles.arenaSkeleton} />}
+
+        {!current.isLoading && !activeVote && (
+          <div className={styles.arenaEmpty} aria-live="polite">
+            <span>
+              <VoteIcon />
+            </span>
+            <h1>{t('home.noVote')}</h1>
+            <p>{current.isError ? t('home.noVoteOffline') : t('home.noVoteHint')}</p>
+            {current.isError && (
+              <button onClick={() => void current.refetch()}>
+                <RefreshCw size={16} />
+                {t('common.retry')}
+              </button>
+            )}
+          </div>
+        )}
+
+        {activeVote && (
+          <>
+            <VoteSignal start={activeVote.startsAt} end={activeVote.endsAt} />
+            <article className={styles.arenaQuestion}>
+              <span className={styles.arenaLiveState} data-complete={activeVote.hasVoted}>
+                {activeVote.hasVoted ? <Check size={15} /> : <Activity size={15} />}
+                {activeVote.hasVoted ? t('vote.success') : t('home.decisionLive')}
+              </span>
+              <h1>{activeVote.title}</h1>
+              <p>{activeVote.description}</p>
+              <div className={styles.arenaVoteFooter}>
+                <span className={styles.arenaReward}>
+                  <Gift size={18} />
+                  {voteReward > 0
+                    ? t('home.voteReward', { amount: voteReward })
+                    : t('home.voxReward')}
+                </span>
+                <NavLink className={styles.arenaPrimary} to={'/votes/' + activeVote.id}>
+                  {activeVote.hasVoted ? t('home.viewVote') : t('home.openVote')}
+                </NavLink>
+              </div>
+            </article>
+          </>
+        )}
+      </section>
+
+      <section className={styles.arenaQuickSection}>
+        <div className={styles.arenaSectionTitle}>
+          <span>{t('home.quick')}</span>
+          <small>{t('home.stats')}</small>
+        </div>
+        <div className={styles.arenaQuickGrid}>
           {quickLinks.map(({ to, icon: Icon, label, value, tone }) => (
-            <NavLink to={to} key={to} className={styles.quickCard} data-tone={tone}>
+            <NavLink to={to} key={to} className={styles.arenaQuickCard} data-tone={tone}>
               <span>
                 <Icon />
               </span>
@@ -611,86 +680,11 @@ function Home({ me }: { me: Me }) {
         </div>
       </section>
 
-      <section className={styles.choiceCard} data-empty={!activeVote}>
-        <div className={styles.sectionHeading}>
-          <span>{t('home.todayVote')}</span>
-          {activeVote && <Countdown end={activeVote.endsAt} />}
-        </div>
-        {current.isLoading && <div className={styles.skeleton} />}
-        {!current.isLoading && !activeVote && (
-          <div className={styles.voteEmpty} aria-live="polite">
-            <span className={styles.voteEmptyIcon}>
-              <VoteIcon />
-            </span>
-            <strong>{t('home.noVote')}</strong>
-            <p>{current.isError ? t('home.noVoteOffline') : t('home.noVoteHint')}</p>
-            {current.isError && (
-              <button className={styles.emptyRetry} onClick={() => void current.refetch()}>
-                <RefreshCw size={16} />
-                {t('common.retry')}
-              </button>
-            )}
-          </div>
-        )}
-        {activeVote && (
-          <div className={styles.choiceCardBody}>
-            <div className={styles.choiceVisual} aria-hidden>
-              <span>
-                <VoteIcon size={30} />
-              </span>
-              <div>
-                {[24, 48, 72, 44, 88, 62, 36].map((height, index) => (
-                  <i key={index} style={{ height: `${height}%` }} />
-                ))}
-              </div>
-            </div>
-            <div className={styles.choiceCopy}>
-              <small>{activeVote.hasVoted ? t('vote.success') : t('home.yourVoiceMatters')}</small>
-              <h2>{activeVote.title}</h2>
-              <p>{activeVote.description}</p>
-              <NavLink className={styles.primary} to={`/votes/${activeVote.id}`}>
-                {activeVote.hasVoted ? t('home.viewVote') : t('home.openVote')}
-              </NavLink>
-            </div>
-          </div>
-        )}
-      </section>
-
       {ads.data?.banners[0] && <BannerAdCard ad={ads.data.banners[0]} />}
-
-      <section className={styles.progressSection}>
-        <div className={styles.sectionHeading}>
-          <span>{t('home.stats')}</span>
-        </div>
-        <div className={styles.insightGrid}>
-          <div className={styles.activityCard}>
-            <div>
-              <small>{t('home.activity')}</small>
-              <strong>{Math.round(me.activityRate)}%</strong>
-              <span>{me.referralProgramActive ? t('home.stable') : t('home.recover')}</span>
-            </div>
-            <Gauge rate={me.activityRate} />
-          </div>
-          <div className={styles.tallyCard} data-tone="blue">
-            <span>
-              <VoteIcon />
-            </span>
-            <small>{t('home.votes')}</small>
-            <strong>{me.ownVotes}</strong>
-          </div>
-          <div className={styles.tallyCard} data-tone="coral">
-            <span>
-              <UsersRound />
-            </span>
-            <small>{t('home.referrals')}</small>
-            <strong>{me.referralCount}</strong>
-          </div>
-        </div>
-      </section>
 
       {Boolean(ads.data?.rewarded.length) && (
         <section className={styles.rewardSection}>
-          <div className={styles.sectionHeading}>
+          <div className={styles.arenaSectionTitle}>
             <span>{t('ads.earn')}</span>
             <small>{t('ads.optional')}</small>
           </div>
@@ -705,15 +699,15 @@ function Home({ me }: { me: Me }) {
   );
 }
 
-function VotePage() {
+function VotePage({ voteReward }: { voteReward: number }) {
   const { id = '' } = useParams();
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
-  const vote = useQuery({ queryKey: ['vote', id], queryFn: () => api<Vote>(`/votes/${id}`) });
+  const vote = useQuery({ queryKey: ['vote', id], queryFn: () => api<Vote>('/votes/' + id) });
   const [chosen, setChosen] = useState<{ id: string; text: string } | null>(null);
   const cast = useMutation({
     mutationFn: (optionId: string) =>
-      api<{ reward: number }>(`/votes/${id}/cast`, {
+      api<{ reward: number }>('/votes/' + id + '/cast', {
         method: 'POST',
         body: JSON.stringify({ optionId, idempotencyKey: crypto.randomUUID() }),
       }),
@@ -727,80 +721,112 @@ function VotePage() {
   });
   if (vote.isLoading)
     return (
-      <div className={styles.page}>
+      <div className={[styles.page, styles.arenaVotePage].join(' ')}>
         <BackButton />
-        <div className={styles.skeleton} />
+        <div className={styles.arenaSkeleton} />
       </div>
     );
   if (vote.error || !vote.data)
     return (
-      <div className={styles.page}>
+      <div className={[styles.page, styles.arenaVotePage].join(' ')}>
         <BackButton />
         <ErrorState error={vote.error} />
       </div>
     );
   const item = vote.data;
   return (
-    <div className={`${styles.page} ${styles.stack}`}>
+    <div className={[styles.page, styles.stack, styles.arenaVotePage].join(' ')}>
       <BackButton />
-      <section className={styles.voteQuestionCard}>
-        {item.imageUrl && <img className={styles.voteImage} src={item.imageUrl} alt="" />}
-        <div className={styles.voteQuestionMeta}>
+
+      <section className={styles.arenaDetailCard}>
+        {item.imageUrl && <img className={styles.arenaVoteImage} src={item.imageUrl} alt="" />}
+        <div className={styles.arenaDetailMeta}>
           <span>
             <VoteIcon size={15} />
-            {t('home.todayVote')}
+            {t('vote.arenaEyebrow')}
           </span>
           <Countdown end={item.endsAt} />
         </div>
-        <h1>{item.title}</h1>
-        <p className={styles.longCopy}>{item.description}</p>
-        <small className={styles.voteEndDate}>
-          {t('vote.ends', { date: dateTime(item.endsAt, i18n.language) })}
-        </small>
-      </section>
-      <section className={styles.choicePanel}>
-        <div className={styles.sectionHeading}>
-          <span>{t('vote.choose')}</span>
-          <small>1 / 2</small>
-        </div>
-        {item.hasVoted || cast.isSuccess ? (
-          <div className={styles.successCard}>
-            <Check size={32} />
-            <strong>{t('vote.success')}</strong>
+        <VoteSignal start={item.startsAt} end={item.endsAt} />
+        <div className={styles.arenaDetailCopy}>
+          <span className={styles.arenaLiveState} data-complete={item.hasVoted}>
+            {item.hasVoted ? <Check size={15} /> : <Activity size={15} />}
+            {item.hasVoted ? t('vote.success') : t('home.decisionLive')}
+          </span>
+          <h1>{item.title}</h1>
+          <p>{item.description}</p>
+          <div className={styles.arenaDetailFooter}>
+            <small>{t('vote.ends', { date: dateTime(item.endsAt, i18n.language) })}</small>
             <span>
-              {cast.data ? t('vote.reward', { amount: cast.data.reward }) : t('vote.hidden')}
+              <Gift size={17} />
+              {voteReward > 0
+                ? t('vote.rewardHint', { amount: voteReward })
+                : t('home.voxReward')}
             </span>
           </div>
+        </div>
+      </section>
+
+      <section className={styles.arenaChoicePanel}>
+        <div className={styles.arenaSectionTitle}>
+          <span>{t('vote.choose')}</span>
+          <small>{t('vote.decisionFinal')}</small>
+        </div>
+        {item.hasVoted || cast.isSuccess ? (
+          <div className={styles.arenaSuccessCard}>
+            <span>
+              <Check size={26} />
+            </span>
+            <strong>{t('vote.success')}</strong>
+            <p>{cast.data ? t('vote.reward', { amount: cast.data.reward }) : t('vote.hidden')}</p>
+          </div>
         ) : (
-          <div className={styles.optionStack}>
+          <div className={styles.arenaOptionStack}>
             {item.options.map((option) => (
-              <button key={option.id} className={styles.option} onClick={() => setChosen(option)}>
-                <span>{option.position}</span>
-                <strong>{option.text}</strong>
-                <i />
+              <button
+                key={option.id}
+                className={styles.arenaOption}
+                data-position={option.position}
+                onClick={() => setChosen(option)}
+              >
+                <span>{option.position === 1 ? 'A' : 'B'}</span>
+                <div>
+                  <small>{t('vote.optionNumber', { number: option.position })}</small>
+                  <strong>{option.text}</strong>
+                </div>
+                <i aria-hidden>→</i>
               </button>
             ))}
-            <small className={styles.warning}>{t('vote.cannotChange')}</small>
+            <small className={styles.arenaWarning}>
+              <ShieldCheck size={15} />
+              {t('vote.cannotChange')}
+            </small>
           </div>
         )}
       </section>
+
       {cast.error && <ErrorState error={cast.error} />}
+
       {chosen && (
         <div className={styles.modalBackdrop} role="presentation" onClick={() => setChosen(null)}>
           <div
-            className={styles.modal}
+            className={[styles.modal, styles.arenaConfirmModal].join(' ')}
             role="dialog"
             aria-modal="true"
             onClick={(event) => event.stopPropagation()}
           >
+            <span className={styles.arenaConfirmIcon}>
+              <VoteIcon />
+            </span>
             <h2>{t('vote.confirmTitle')}</h2>
             <p>{t('vote.confirmText', { option: chosen.text })}</p>
+            <strong className={styles.arenaConfirmChoice}>{chosen.text}</strong>
             <button
-              className={styles.primary}
+              className={styles.arenaPrimary}
               disabled={cast.isPending}
               onClick={() => cast.mutate(chosen.id)}
             >
-              {t('vote.confirm')}
+              {cast.isPending ? t('common.loading') : t('vote.confirm')}
             </button>
             <button className={styles.secondary} onClick={() => setChosen(null)}>
               {t('vote.cancel')}
@@ -2393,7 +2419,11 @@ function UserApp() {
   const settings = useQuery({
     queryKey: ['public-settings'],
     queryFn: () =>
-      api<{ SIGNUP_REWARD?: number; REFERRAL_MIN_ACTIVITY_PERCENT?: number }>(
+      api<{
+        SIGNUP_REWARD?: number;
+        BASE_VOTE_REWARD?: number;
+        REFERRAL_MIN_ACTIVITY_PERCENT?: number;
+      }>(
         '/system/public-settings',
       ),
   });
@@ -2440,8 +2470,14 @@ function UserApp() {
   return (
     <Shell features={featureData}>
       <Routes>
-        <Route path="/" element={<Home me={me.data} />} />
-        <Route path="/votes/:id" element={<VotePage />} />
+        <Route
+          path="/"
+          element={<Home me={me.data} voteReward={settings.data?.BASE_VOTE_REWARD ?? 0} />}
+        />
+        <Route
+          path="/votes/:id"
+          element={<VotePage voteReward={settings.data?.BASE_VOTE_REWARD ?? 0} />}
+        />
         <Route path="/history" element={<HistoryPage />} />
         <Route path="/results/:id" element={<ResultPage />} />
         <Route

@@ -43,7 +43,12 @@
     "yourVoiceMatters": "Your voice matters",
     "viewVote": "Open vote",
     "stable": "Great participation rhythm",
-    "recover": "You can raise your activity"
+    "recover": "You can raise your activity",
+    "arenaEyebrow": "MyVoice member",
+    "participation": "Participation",
+    "decisionLive": "Decision is open",
+    "voteReward": "+{{amount}} VOX for your vote",
+    "voxReward": "VOX for participation"
   },
   "vote": {
     "ends": "Ends {{date}}",
@@ -57,7 +62,12 @@
     "hidden": "Results will appear after the vote closes.",
     "participants": "{{count}} participants",
     "tie": "Tie",
-    "choose": "Choose an option"
+    "choose": "Choose an option",
+    "arenaEyebrow": "Voice arena",
+    "rewardHint": "+{{amount}} VOX for participation",
+    "decisionFinal": "Review your choice before confirming",
+    "optionNumber": "Option {{number}}",
+    "timeline": "Voting time elapsed"
   },
   "history": {
     "title": "Past decisions",

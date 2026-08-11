@@ -1,12 +1,14 @@
 :root {
-  --mv-ink: #0b1f22;
-  --mv-teal: #079d91;
-  --mv-blue: #2385f5;
-  --mv-mist: #f1f8f7;
+  --mv-ink: #08191e;
+  --mv-teal: #13a89e;
+  --mv-blue: #2d73ff;
+  --mv-mist: #f4f8f6;
   --mv-surface: #ffffff;
-  --mv-coral: #e86c5d;
+  --mv-coral: #ef6a6a;
+  --mv-gold: #ffc857;
+  --mv-night: #08191e;
   font-family:
-    Inter,
+    'Manrope Variable',
     'Segoe UI Variable',
     ui-sans-serif,
     system-ui,

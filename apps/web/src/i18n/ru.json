@@ -43,7 +43,12 @@
     "yourVoiceMatters": "Ваш голос важен",
     "viewVote": "Открыть голосование",
     "stable": "Отличный ритм участия",
-    "recover": "Можно повысить активность"
+    "recover": "Можно повысить активность",
+    "arenaEyebrow": "Участник MyVoice",
+    "participation": "Участие",
+    "decisionLive": "Решение открыто",
+    "voteReward": "+{{amount}} VOX за голос",
+    "voxReward": "VOX за участие"
   },
   "vote": {
     "ends": "Завершится {{date}}",
@@ -57,7 +62,12 @@
     "hidden": "Результаты появятся после завершения.",
     "participants": "Участников: {{count}}",
     "tie": "Ничья",
-    "choose": "Выберите вариант"
+    "choose": "Выберите вариант",
+    "arenaEyebrow": "Арена голосов",
+    "rewardHint": "+{{amount}} VOX за участие",
+    "decisionFinal": "Проверьте выбор перед подтверждением",
+    "optionNumber": "Вариант {{number}}",
+    "timeline": "Прошедшее время голосования"
   },
   "history": {
     "title": "Прошлые решения",
