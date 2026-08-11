@@ -30,6 +30,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUrl,
   Length,
   Matches,
   Max,
@@ -94,6 +95,25 @@ class VoteTranslationDto {
   @IsString()
   @Length(10, 3000)
   description!: string;
+  @IsOptional()
+  @IsString()
+  @Length(0, 3000)
+  context?: string;
+}
+
+class VoteSourceDto {
+  @IsIn(['en', 'ru'])
+  language!: 'en' | 'ru';
+  @IsString()
+  @Length(2, 160)
+  label!: string;
+  @IsUrl({ require_protocol: true, protocols: ['http', 'https'] })
+  @Length(8, 2000)
+  url!: string;
+  @IsInt()
+  @Min(1)
+  @Max(10)
+  position!: number;
 }
 
 class VoteOptionTranslationDto {
@@ -136,6 +156,12 @@ export class VoteInputDto {
   @ValidateNested({ each: true })
   @Type(() => VoteOptionDto)
   options!: VoteOptionDto[];
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => VoteSourceDto)
+  sources?: VoteSourceDto[];
   @IsOptional()
   @IsInt()
   @Min(0)
@@ -465,6 +491,12 @@ export class AdminController {
       if (!dto.translations?.some((item) => item.language === language)) {
         throw new BadRequestException(`Missing ${language} vote translation`);
       }
+      const positions = (dto.sources ?? [])
+        .filter((source) => source.language === language)
+        .map((source) => source.position);
+      if (new Set(positions).size !== positions.length) {
+        throw new BadRequestException(`Duplicate ${language} source position`);
+      }
       if (
         dto.options.some(
           (option) => !option.translations.some((item) => item.language === language),
@@ -489,6 +521,7 @@ export class AdminController {
         status: 'DRAFT',
         createdByAdminId: req.adminId!,
         translations: { create: dto.translations },
+        sources: { create: dto.sources ?? [] },
         options: {
           create: dto.options.map((option) => ({
             position: option.position,
@@ -496,7 +529,11 @@ export class AdminController {
           })),
         },
       },
-      include: { translations: true, options: { include: { translations: true } } },
+      include: {
+        translations: true,
+        sources: { orderBy: { position: 'asc' } },
+        options: { include: { translations: true } },
+      },
     });
     await this.audit(req.adminId!, 'VOTE_CREATE', 'Vote', vote.id, undefined, vote);
     return vote;
@@ -509,6 +546,7 @@ export class AdminController {
     const { startsAt, endsAt } = this.validateVote(dto);
     const after = await this.prisma.$transaction(async (tx) => {
       await tx.voteTranslation.deleteMany({ where: { voteId: id } });
+      await tx.voteSource.deleteMany({ where: { voteId: id } });
       await tx.voteOption.deleteMany({ where: { voteId: id } });
       return tx.vote.update({
         where: { id },
@@ -519,6 +557,7 @@ export class AdminController {
           winnerReward: dto.winnerReward ?? 0,
           loserReward: dto.loserReward ?? 0,
           translations: { create: dto.translations },
+          sources: { create: dto.sources ?? [] },
           options: {
             create: dto.options.map((option) => ({
               position: option.position,
@@ -526,7 +565,11 @@ export class AdminController {
             })),
           },
         },
-        include: { translations: true, options: { include: { translations: true } } },
+        include: {
+          translations: true,
+          sources: { orderBy: { position: 'asc' } },
+          options: { include: { translations: true } },
+        },
       });
     });
     await this.audit(req.adminId!, 'VOTE_EDIT', 'Vote', id, before, after);
@@ -607,10 +650,46 @@ export class AdminController {
   async votesList() {
     return this.prisma.vote.findMany({
       where: { deletedAt: null },
-      include: { translations: true, options: { include: { translations: true } } },
+      include: {
+        translations: true,
+        sources: { orderBy: { position: 'asc' } },
+        options: { orderBy: { position: 'asc' }, include: { translations: true } },
+      },
       orderBy: { createdAt: 'desc' },
       take: 100,
     });
+  }
+
+  @Get('reports')
+  async reports(@Query('status') status = 'PENDING') {
+    const safeStatus = ['PENDING', 'RESOLVED', 'DISMISSED'].includes(status) ? status : 'PENDING';
+    return this.prisma.voteReport.findMany({
+      where: { status: safeStatus as 'PENDING' | 'RESOLVED' | 'DISMISSED' },
+      include: {
+        user: { select: { firstName: true, username: true } },
+        vote: { select: { translations: true } },
+        reviewer: { select: { displayName: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+  }
+
+  @Post('reports/:id/:decision')
+  async decideReport(
+    @Req() req: AuthRequest,
+    @Param('id') id: string,
+    @Param('decision') decision: string,
+  ) {
+    if (!['resolve', 'dismiss'].includes(decision)) throw new BadRequestException('Bad decision');
+    const before = await this.prisma.voteReport.findUniqueOrThrow({ where: { id } });
+    const status = decision === 'resolve' ? 'RESOLVED' : 'DISMISSED';
+    const after = await this.prisma.voteReport.update({
+      where: { id },
+      data: { status, reviewedByAdminId: req.adminId, reviewedAt: new Date() },
+    });
+    await this.audit(req.adminId!, `VOTE_REPORT_${status}`, 'VoteReport', id, before, after);
+    return after;
   }
 
   @Get('suggestions')

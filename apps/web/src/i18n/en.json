@@ -67,7 +67,23 @@
     "rewardHint": "+{{amount}} VOX for participation",
     "decisionFinal": "Review your choice before confirming",
     "optionNumber": "Option {{number}}",
-    "timeline": "Voting time elapsed"
+    "timeline": "Voting time elapsed",
+    "context": "Context",
+    "sources": "Sources",
+    "sourcesHint": "Open links to check the background",
+    "report": "Report this vote",
+    "reported": "Report sent",
+    "reportTitle": "Report a vote",
+    "reportHint": "Tell moderators what should be reviewed. Your report is private.",
+    "reportReason": "Reason",
+    "reportMisleading": "Misleading information",
+    "reportBiased": "Biased wording",
+    "reportOffensive": "Offensive content",
+    "reportOther": "Other",
+    "reportDetails": "Optional details",
+    "reportSend": "Send report",
+    "shareResult": "Share result in Telegram",
+    "shareText": "See how the MyVoice community voted"
   },
   "history": {
     "title": "Past decisions",
@@ -96,7 +112,13 @@
     "participated": "Participated",
     "missed": "Missed",
     "explain": "Only completed, non-cancelled votes available after registration count.",
-    "eyebrow": "Participation rhythm"
+    "eyebrow": "Participation rhythm",
+    "weeklyEyebrow": "Last 7 days",
+    "weeklyTitle": "Weekly participation",
+    "yourPlace": "Your place",
+    "weeklyVotes": "{{count}} completed votes",
+    "weeklyEmpty": "Participate in a completed vote to enter the weekly board.",
+    "member": "MyVoice member"
   },
   "profile": {
     "title": "Profile",
@@ -104,7 +126,20 @@
     "language": "Language",
     "documents": "Accepted documents",
     "english": "English",
-    "russian": "Русский"
+    "russian": "Русский",
+    "notifications": "Notifications",
+    "notificationsHint": "Choose what the bot may send",
+    "notificationsAll": "All bot notifications",
+    "notificationsNew": "New votes",
+    "notificationsEnding": "One hour remaining",
+    "notificationsResults": "Published results",
+    "voxCenter": "VOX center",
+    "voxCenterHint": "Where your balance came from",
+    "voxVoting": "Voting",
+    "voxReferrals": "Referrals",
+    "voxAds": "Rewarded ads",
+    "voxRegistration": "Registration",
+    "voxEmpty": "No VOX operations yet."
   },
   "suggest": {
     "title": "Suggest a Vote",

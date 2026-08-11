@@ -67,7 +67,23 @@
     "rewardHint": "+{{amount}} VOX за участие",
     "decisionFinal": "Проверьте выбор перед подтверждением",
     "optionNumber": "Вариант {{number}}",
-    "timeline": "Прошедшее время голосования"
+    "timeline": "Прошедшее время голосования",
+    "context": "Контекст",
+    "sources": "Источники",
+    "sourcesHint": "Откройте ссылки, чтобы изучить вопрос",
+    "report": "Пожаловаться на голосование",
+    "reported": "Жалоба отправлена",
+    "reportTitle": "Пожаловаться на голосование",
+    "reportHint": "Сообщите модераторам, что нужно проверить. Жалоба конфиденциальна.",
+    "reportReason": "Причина",
+    "reportMisleading": "Недостоверная информация",
+    "reportBiased": "Предвзятая формулировка",
+    "reportOffensive": "Оскорбительный материал",
+    "reportOther": "Другое",
+    "reportDetails": "Дополнительное пояснение",
+    "reportSend": "Отправить жалобу",
+    "shareResult": "Поделиться результатом в Telegram",
+    "shareText": "Посмотрите, как проголосовало сообщество MyVoice"
   },
   "history": {
     "title": "Прошлые решения",
@@ -96,7 +112,13 @@
     "participated": "Участий",
     "missed": "Пропущено",
     "explain": "Учитываются только завершенные и не отмененные голосования после регистрации.",
-    "eyebrow": "Ритм участия"
+    "eyebrow": "Ритм участия",
+    "weeklyEyebrow": "Последние 7 дней",
+    "weeklyTitle": "Недельный рейтинг участия",
+    "yourPlace": "Ваше место",
+    "weeklyVotes": "Завершённых голосований: {{count}}",
+    "weeklyEmpty": "Участвуйте в завершённом голосовании, чтобы попасть в рейтинг недели.",
+    "member": "Участник MyVoice"
   },
   "profile": {
     "title": "Профиль",
@@ -104,7 +126,20 @@
     "language": "Язык",
     "documents": "Принятые документы",
     "english": "English",
-    "russian": "Русский"
+    "russian": "Русский",
+    "notifications": "Уведомления",
+    "notificationsHint": "Выберите сообщения от бота",
+    "notificationsAll": "Все уведомления бота",
+    "notificationsNew": "Новые голосования",
+    "notificationsEnding": "Остался один час",
+    "notificationsResults": "Опубликованы результаты",
+    "voxCenter": "Центр VOX",
+    "voxCenterHint": "Из чего складывается баланс",
+    "voxVoting": "Голосования",
+    "voxReferrals": "Рефералы",
+    "voxAds": "Реклама с наградой",
+    "voxRegistration": "Регистрация",
+    "voxEmpty": "Операций с VOX пока нет."
   },
   "suggest": {
     "title": "Предложить голосование",

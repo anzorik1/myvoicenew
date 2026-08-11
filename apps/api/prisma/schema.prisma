@@ -59,35 +59,67 @@ enum AdCampaignStatus {
   ENDED
 }
 
+enum NotificationKind {
+  VOTE_STARTED
+  VOTE_ENDING
+  VOTE_RESULT
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum VoteReportReason {
+  MISLEADING
+  OFFENSIVE
+  BIASED
+  OTHER
+}
+
+enum VoteReportStatus {
+  PENDING
+  RESOLVED
+  DISMISSED
+}
+
 model User {
-  id                       String           @id @default(uuid()) @db.Uuid
-  telegramId               BigInt           @unique @map("telegram_id")
-  username                 String?          @db.VarChar(64)
-  firstName                String           @map("first_name") @db.VarChar(128)
-  lastName                 String?          @map("last_name") @db.VarChar(128)
-  languageCode             String           @default("en") @map("language_code") @db.VarChar(8)
-  status                   UserStatus       @default(PENDING_CONSENT)
-  registeredAt             DateTime         @default(now()) @map("registered_at")
-  registrationCompletedAt  DateTime?        @map("registration_completed_at")
-  lastActivityAt           DateTime         @default(now()) @map("last_activity_at")
-  voxBalance               Int              @default(0) @map("vox_balance")
-  ownVotesCount            Int              @default(0) @map("own_votes_count")
-  eligibleVotesCount       Int              @default(0) @map("eligible_votes_count")
-  completedVotesParticipated Int            @default(0) @map("completed_votes_participated")
-  activityRate             Decimal          @default(100) @map("activity_rate") @db.Decimal(5, 2)
-  referralCode             String           @unique @map("referral_code") @db.VarChar(20)
-  suggestionBlocked        Boolean          @default(false) @map("suggestion_blocked")
-  deletedAt                DateTime?        @map("deleted_at")
-  createdAt                DateTime         @default(now()) @map("created_at")
-  updatedAt                DateTime         @updatedAt @map("updated_at")
-  consents                 UserConsent[]
-  sessions                 UserSession[]
-  referralAsInvitee        Referral?        @relation("Invitee")
-  referralsAsReferrer      Referral[]       @relation("Referrer")
-  userVotes                UserVote[]
-  voxTransactions          VoxTransaction[]
-  suggestions              VoteSuggestion[]
-  adRewardSessions         AdRewardSession[]
+  id                         String             @id @default(uuid()) @db.Uuid
+  telegramId                 BigInt             @unique @map("telegram_id")
+  username                   String?            @db.VarChar(64)
+  firstName                  String             @map("first_name") @db.VarChar(128)
+  lastName                   String?            @map("last_name") @db.VarChar(128)
+  languageCode               String             @default("en") @map("language_code") @db.VarChar(8)
+  status                     UserStatus         @default(PENDING_CONSENT)
+  registeredAt               DateTime           @default(now()) @map("registered_at")
+  registrationCompletedAt    DateTime?          @map("registration_completed_at")
+  lastActivityAt             DateTime           @default(now()) @map("last_activity_at")
+  voxBalance                 Int                @default(0) @map("vox_balance")
+  ownVotesCount              Int                @default(0) @map("own_votes_count")
+  eligibleVotesCount         Int                @default(0) @map("eligible_votes_count")
+  completedVotesParticipated Int                @default(0) @map("completed_votes_participated")
+  activityRate               Decimal            @default(100) @map("activity_rate") @db.Decimal(5, 2)
+  referralCode               String             @unique @map("referral_code") @db.VarChar(20)
+  suggestionBlocked          Boolean            @default(false) @map("suggestion_blocked")
+  notificationsEnabled       Boolean            @default(true) @map("notifications_enabled")
+  notifyNewVotes             Boolean            @default(true) @map("notify_new_votes")
+  notifyVoteEnding           Boolean            @default(true) @map("notify_vote_ending")
+  notifyResults              Boolean            @default(true) @map("notify_results")
+  deletedAt                  DateTime?          @map("deleted_at")
+  createdAt                  DateTime           @default(now()) @map("created_at")
+  updatedAt                  DateTime           @updatedAt @map("updated_at")
+  consents                   UserConsent[]
+  sessions                   UserSession[]
+  referralAsInvitee          Referral?          @relation("Invitee")
+  referralsAsReferrer        Referral[]         @relation("Referrer")
+  userVotes                  UserVote[]
+  voxTransactions            VoxTransaction[]
+  suggestions                VoteSuggestion[]
+  adRewardSessions           AdRewardSession[]
+  notifications              UserNotification[]
+  voteReports                VoteReport[]
+  voteShares                 VoteShare[]
 
   @@index([status, lastActivityAt])
   @@index([activityRate])
@@ -124,44 +156,48 @@ model UserSession {
 }
 
 model Referral {
-  id             String    @id @default(uuid()) @db.Uuid
-  referrerId     String    @map("referrer_id") @db.Uuid
-  inviteeId      String    @unique @map("invitee_id") @db.Uuid
-  sourceCode     String    @map("source_code") @db.VarChar(20)
-  signupRewardedAt DateTime? @map("signup_rewarded_at")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  referrer       User      @relation("Referrer", fields: [referrerId], references: [id], onDelete: Restrict)
-  invitee        User      @relation("Invitee", fields: [inviteeId], references: [id], onDelete: Restrict)
-  transactions   VoxTransaction[]
+  id               String           @id @default(uuid()) @db.Uuid
+  referrerId       String           @map("referrer_id") @db.Uuid
+  inviteeId        String           @unique @map("invitee_id") @db.Uuid
+  sourceCode       String           @map("source_code") @db.VarChar(20)
+  signupRewardedAt DateTime?        @map("signup_rewarded_at")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  referrer         User             @relation("Referrer", fields: [referrerId], references: [id], onDelete: Restrict)
+  invitee          User             @relation("Invitee", fields: [inviteeId], references: [id], onDelete: Restrict)
+  transactions     VoxTransaction[]
 
   @@index([referrerId, createdAt])
   @@map("referrals")
 }
 
 model Vote {
-  id                  String           @id @default(uuid()) @db.Uuid
-  status              VoteStatus       @default(DRAFT)
-  startsAt            DateTime         @map("starts_at")
-  endsAt              DateTime         @map("ends_at")
-  imageUrl            String?          @map("image_url")
-  participantCount    Int              @default(0) @map("participant_count")
-  resultStatus        VoteResultStatus @default(PENDING) @map("result_status")
-  winnerOptionId      String?          @map("winner_option_id") @db.Uuid
-  resultPublishedAt   DateTime?        @map("result_published_at")
-  completedAt         DateTime?        @map("completed_at")
-  earlyRewardCount    Int              @default(0) @map("early_reward_count")
-  winnerReward        Int              @default(0) @map("winner_reward")
-  loserReward         Int              @default(0) @map("loser_reward")
-  createdByAdminId    String           @map("created_by_admin_id") @db.Uuid
-  createdAt           DateTime         @default(now()) @map("created_at")
-  updatedAt           DateTime         @updatedAt @map("updated_at")
-  deletedAt           DateTime?        @map("deleted_at")
-  translations        VoteTranslation[]
-  options             VoteOption[]
-  userVotes           UserVote[]
-  voxTransactions     VoxTransaction[]
-  winnerOption        VoteOption?        @relation("WinningOption", fields: [winnerOptionId], references: [id], onDelete: Restrict)
-  createdBy           AdminUser        @relation(fields: [createdByAdminId], references: [id], onDelete: Restrict)
+  id                String             @id @default(uuid()) @db.Uuid
+  status            VoteStatus         @default(DRAFT)
+  startsAt          DateTime           @map("starts_at")
+  endsAt            DateTime           @map("ends_at")
+  imageUrl          String?            @map("image_url")
+  participantCount  Int                @default(0) @map("participant_count")
+  resultStatus      VoteResultStatus   @default(PENDING) @map("result_status")
+  winnerOptionId    String?            @map("winner_option_id") @db.Uuid
+  resultPublishedAt DateTime?          @map("result_published_at")
+  completedAt       DateTime?          @map("completed_at")
+  earlyRewardCount  Int                @default(0) @map("early_reward_count")
+  winnerReward      Int                @default(0) @map("winner_reward")
+  loserReward       Int                @default(0) @map("loser_reward")
+  createdByAdminId  String             @map("created_by_admin_id") @db.Uuid
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  deletedAt         DateTime?          @map("deleted_at")
+  translations      VoteTranslation[]
+  options           VoteOption[]
+  userVotes         UserVote[]
+  voxTransactions   VoxTransaction[]
+  sources           VoteSource[]
+  notifications     UserNotification[]
+  reports           VoteReport[]
+  shares            VoteShare[]
+  winnerOption      VoteOption?        @relation("WinningOption", fields: [winnerOptionId], references: [id], onDelete: Restrict)
+  createdBy         AdminUser          @relation(fields: [createdByAdminId], references: [id], onDelete: Restrict)
 
   @@index([status, startsAt, endsAt])
   @@index([completedAt(sort: Desc)])
@@ -169,15 +205,89 @@ model Vote {
 }
 
 model VoteTranslation {
-  id          String @id @default(uuid()) @db.Uuid
-  voteId      String @map("vote_id") @db.Uuid
-  language    String @db.VarChar(8)
-  title       String @db.VarChar(240)
-  description String @db.Text
-  vote        Vote   @relation(fields: [voteId], references: [id], onDelete: Cascade)
+  id          String  @id @default(uuid()) @db.Uuid
+  voteId      String  @map("vote_id") @db.Uuid
+  language    String  @db.VarChar(8)
+  title       String  @db.VarChar(240)
+  description String  @db.Text
+  context     String? @db.Text
+  vote        Vote    @relation(fields: [voteId], references: [id], onDelete: Cascade)
 
   @@unique([voteId, language])
   @@map("vote_translations")
+}
+
+model VoteSource {
+  id        String   @id @default(uuid()) @db.Uuid
+  voteId    String   @map("vote_id") @db.Uuid
+  language  String   @db.VarChar(8)
+  label     String   @db.VarChar(160)
+  url       String   @db.VarChar(2000)
+  position  Int
+  createdAt DateTime @default(now()) @map("created_at")
+  vote      Vote     @relation(fields: [voteId], references: [id], onDelete: Cascade)
+
+  @@unique([voteId, language, position])
+  @@index([voteId, language])
+  @@map("vote_sources")
+}
+
+model UserNotification {
+  id             String             @id @default(uuid()) @db.Uuid
+  userId         String             @map("user_id") @db.Uuid
+  voteId         String             @map("vote_id") @db.Uuid
+  kind           NotificationKind
+  status         NotificationStatus @default(PENDING)
+  idempotencyKey String             @unique @map("idempotency_key") @db.VarChar(180)
+  attempts       Int                @default(0)
+  lastError      String?            @map("last_error") @db.VarChar(1000)
+  sentAt         DateTime?          @map("sent_at")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+  user           User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  vote           Vote               @relation(fields: [voteId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, voteId, kind])
+  @@index([status, createdAt])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("user_notifications")
+}
+
+model VoteReport {
+  id                String           @id @default(uuid()) @db.Uuid
+  userId            String           @map("user_id") @db.Uuid
+  voteId            String           @map("vote_id") @db.Uuid
+  reason            VoteReportReason
+  details           String?          @db.VarChar(1000)
+  status            VoteReportStatus @default(PENDING)
+  reviewedByAdminId String?          @map("reviewed_by_admin_id") @db.Uuid
+  reviewedAt        DateTime?        @map("reviewed_at")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+  user              User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  vote              Vote             @relation(fields: [voteId], references: [id], onDelete: Restrict)
+  reviewer          AdminUser?       @relation(fields: [reviewedByAdminId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, voteId])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([voteId, createdAt(sort: Desc)])
+  @@map("vote_reports")
+}
+
+model VoteShare {
+  id        String   @id @default(uuid()) @db.Uuid
+  tokenHash String   @unique @map("token_hash") @db.VarChar(64)
+  userId    String   @map("user_id") @db.Uuid
+  voteId    String   @map("vote_id") @db.Uuid
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  vote      Vote     @relation(fields: [voteId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([voteId, createdAt(sort: Desc)])
+  @@index([expiresAt])
+  @@map("vote_shares")
 }
 
 model VoteOption {
@@ -206,18 +316,18 @@ model VoteOptionTranslation {
 }
 
 model UserVote {
-  id               String   @id @default(uuid()) @db.Uuid
-  userId           String   @map("user_id") @db.Uuid
-  voteId           String   @map("vote_id") @db.Uuid
-  optionId         String   @map("option_id") @db.Uuid
-  clientRequestId  String   @map("client_request_id") @db.VarChar(80)
-  rewardState      String   @default("PAID") @map("reward_state") @db.VarChar(20)
-  earlyRank        Int?     @map("early_rank")
-  createdAt        DateTime @default(now()) @map("created_at")
-  user             User     @relation(fields: [userId], references: [id], onDelete: Restrict)
-  vote             Vote     @relation(fields: [voteId], references: [id], onDelete: Restrict)
-  option           VoteOption @relation(fields: [optionId], references: [id], onDelete: Restrict)
-  transactions     VoxTransaction[]
+  id              String           @id @default(uuid()) @db.Uuid
+  userId          String           @map("user_id") @db.Uuid
+  voteId          String           @map("vote_id") @db.Uuid
+  optionId        String           @map("option_id") @db.Uuid
+  clientRequestId String           @map("client_request_id") @db.VarChar(80)
+  rewardState     String           @default("PAID") @map("reward_state") @db.VarChar(20)
+  earlyRank       Int?             @map("early_rank")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  user            User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  vote            Vote             @relation(fields: [voteId], references: [id], onDelete: Restrict)
+  option          VoteOption       @relation(fields: [optionId], references: [id], onDelete: Restrict)
+  transactions    VoxTransaction[]
 
   @@unique([userId, voteId])
   @@unique([userId, clientRequestId])
@@ -227,24 +337,24 @@ model UserVote {
 }
 
 model VoxTransaction {
-  id             String             @id @default(uuid()) @db.Uuid
-  userId         String             @map("user_id") @db.Uuid
-  type           VoxTransactionType
-  amount         Int
-  balanceBefore  Int                @map("balance_before")
-  balanceAfter   Int                @map("balance_after")
-  voteId         String?            @map("vote_id") @db.Uuid
-  userVoteId     String?            @map("user_vote_id") @db.Uuid
-  referralId     String?            @map("referral_id") @db.Uuid
-  adRewardSessionId String?         @unique @map("ad_reward_session_id") @db.Uuid
-  idempotencyKey String             @unique @map("idempotency_key") @db.VarChar(160)
-  comment        String             @db.VarChar(500)
-  createdAt      DateTime           @default(now()) @map("created_at")
-  user           User               @relation(fields: [userId], references: [id], onDelete: Restrict)
-  vote           Vote?              @relation(fields: [voteId], references: [id], onDelete: Restrict)
-  userVote       UserVote?          @relation(fields: [userVoteId], references: [id], onDelete: Restrict)
-  referral       Referral?          @relation(fields: [referralId], references: [id], onDelete: Restrict)
-  adRewardSession AdRewardSession?  @relation(fields: [adRewardSessionId], references: [id], onDelete: Restrict)
+  id                String             @id @default(uuid()) @db.Uuid
+  userId            String             @map("user_id") @db.Uuid
+  type              VoxTransactionType
+  amount            Int
+  balanceBefore     Int                @map("balance_before")
+  balanceAfter      Int                @map("balance_after")
+  voteId            String?            @map("vote_id") @db.Uuid
+  userVoteId        String?            @map("user_vote_id") @db.Uuid
+  referralId        String?            @map("referral_id") @db.Uuid
+  adRewardSessionId String?            @unique @map("ad_reward_session_id") @db.Uuid
+  idempotencyKey    String             @unique @map("idempotency_key") @db.VarChar(160)
+  comment           String             @db.VarChar(500)
+  createdAt         DateTime           @default(now()) @map("created_at")
+  user              User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  vote              Vote?              @relation(fields: [voteId], references: [id], onDelete: Restrict)
+  userVote          UserVote?          @relation(fields: [userVoteId], references: [id], onDelete: Restrict)
+  referral          Referral?          @relation(fields: [referralId], references: [id], onDelete: Restrict)
+  adRewardSession   AdRewardSession?   @relation(fields: [adRewardSessionId], references: [id], onDelete: Restrict)
 
   @@index([userId, createdAt(sort: Desc)])
   @@index([type, createdAt])
@@ -252,25 +362,25 @@ model VoxTransaction {
 }
 
 model AdCampaign {
-  id                  String           @id @default(uuid()) @db.Uuid
+  id                  String                  @id @default(uuid()) @db.Uuid
   type                AdCampaignType
-  status              AdCampaignStatus @default(DRAFT)
-  imageUrl            String?          @map("image_url") @db.VarChar(2000)
-  mediaUrl            String?          @map("media_url") @db.VarChar(2000)
-  targetUrl           String?          @map("target_url") @db.VarChar(2000)
-  startsAt            DateTime         @map("starts_at")
-  endsAt              DateTime?        @map("ends_at")
-  rewardVox           Int              @default(0) @map("reward_vox")
-  minimumWatchSeconds Int              @default(0) @map("minimum_watch_seconds")
-  dailyRewardLimit    Int              @default(1) @map("daily_reward_limit")
-  impressionCount     BigInt           @default(0) @map("impression_count")
-  clickCount          BigInt           @default(0) @map("click_count")
-  rewardCount         BigInt           @default(0) @map("reward_count")
-  createdByAdminId    String           @map("created_by_admin_id") @db.Uuid
-  createdAt           DateTime         @default(now()) @map("created_at")
-  updatedAt           DateTime         @updatedAt @map("updated_at")
-  deletedAt           DateTime?        @map("deleted_at")
-  createdBy           AdminUser        @relation(fields: [createdByAdminId], references: [id], onDelete: Restrict)
+  status              AdCampaignStatus        @default(DRAFT)
+  imageUrl            String?                 @map("image_url") @db.VarChar(2000)
+  mediaUrl            String?                 @map("media_url") @db.VarChar(2000)
+  targetUrl           String?                 @map("target_url") @db.VarChar(2000)
+  startsAt            DateTime                @map("starts_at")
+  endsAt              DateTime?               @map("ends_at")
+  rewardVox           Int                     @default(0) @map("reward_vox")
+  minimumWatchSeconds Int                     @default(0) @map("minimum_watch_seconds")
+  dailyRewardLimit    Int                     @default(1) @map("daily_reward_limit")
+  impressionCount     BigInt                  @default(0) @map("impression_count")
+  clickCount          BigInt                  @default(0) @map("click_count")
+  rewardCount         BigInt                  @default(0) @map("reward_count")
+  createdByAdminId    String                  @map("created_by_admin_id") @db.Uuid
+  createdAt           DateTime                @default(now()) @map("created_at")
+  updatedAt           DateTime                @updatedAt @map("updated_at")
+  deletedAt           DateTime?               @map("deleted_at")
+  createdBy           AdminUser               @relation(fields: [createdByAdminId], references: [id], onDelete: Restrict)
   translations        AdCampaignTranslation[]
   rewardSessions      AdRewardSession[]
 
@@ -293,18 +403,18 @@ model AdCampaignTranslation {
 }
 
 model AdRewardSession {
-  id              String         @id @default(uuid()) @db.Uuid
-  campaignId      String         @map("campaign_id") @db.Uuid
-  userId          String         @map("user_id") @db.Uuid
-  clientRequestId String         @map("client_request_id") @db.VarChar(80)
-  rewardDay       DateTime       @map("reward_day") @db.Date
-  watchedSeconds  Int            @default(0) @map("watched_seconds")
-  startedAt       DateTime       @default(now()) @map("started_at")
-  lastHeartbeatAt DateTime       @default(now()) @map("last_heartbeat_at")
-  expiresAt       DateTime       @map("expires_at")
-  claimedAt       DateTime?      @map("claimed_at")
-  campaign        AdCampaign     @relation(fields: [campaignId], references: [id], onDelete: Restrict)
-  user            User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  id              String          @id @default(uuid()) @db.Uuid
+  campaignId      String          @map("campaign_id") @db.Uuid
+  userId          String          @map("user_id") @db.Uuid
+  clientRequestId String          @map("client_request_id") @db.VarChar(80)
+  rewardDay       DateTime        @map("reward_day") @db.Date
+  watchedSeconds  Int             @default(0) @map("watched_seconds")
+  startedAt       DateTime        @default(now()) @map("started_at")
+  lastHeartbeatAt DateTime        @default(now()) @map("last_heartbeat_at")
+  expiresAt       DateTime        @map("expires_at")
+  claimedAt       DateTime?       @map("claimed_at")
+  campaign        AdCampaign      @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  user            User            @relation(fields: [userId], references: [id], onDelete: Restrict)
   transaction     VoxTransaction?
 
   @@unique([userId, clientRequestId])
@@ -314,16 +424,16 @@ model AdRewardSession {
 }
 
 model VoteSuggestion {
-  id         String           @id @default(uuid()) @db.Uuid
-  userId     String           @map("user_id") @db.Uuid
-  status     SuggestionStatus @default(PENDING)
-  language   String           @db.VarChar(8)
-  reviewedBy String?          @map("reviewed_by") @db.Uuid
-  reviewedAt DateTime?        @map("reviewed_at")
-  createdAt  DateTime         @default(now()) @map("created_at")
-  updatedAt  DateTime         @updatedAt @map("updated_at")
-  user       User             @relation(fields: [userId], references: [id], onDelete: Restrict)
-  reviewer   AdminUser?       @relation(fields: [reviewedBy], references: [id], onDelete: Restrict)
+  id           String                      @id @default(uuid()) @db.Uuid
+  userId       String                      @map("user_id") @db.Uuid
+  status       SuggestionStatus            @default(PENDING)
+  language     String                      @db.VarChar(8)
+  reviewedBy   String?                     @map("reviewed_by") @db.Uuid
+  reviewedAt   DateTime?                   @map("reviewed_at")
+  createdAt    DateTime                    @default(now()) @map("created_at")
+  updatedAt    DateTime                    @updatedAt @map("updated_at")
+  user         User                        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  reviewer     AdminUser?                  @relation(fields: [reviewedBy], references: [id], onDelete: Restrict)
   translations VoteSuggestionTranslation[]
 
   @@index([userId, createdAt(sort: Desc)])
@@ -346,12 +456,12 @@ model VoteSuggestionTranslation {
 }
 
 model FeatureFlag {
-  key              String   @id @db.VarChar(80)
-  enabled          Boolean  @default(false)
-  usersThreshold   Int?     @map("users_threshold")
-  public           Boolean  @default(false)
-  description      String   @db.VarChar(500)
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  key            String   @id @db.VarChar(80)
+  enabled        Boolean  @default(false)
+  usersThreshold Int?     @map("users_threshold")
+  public         Boolean  @default(false)
+  description    String   @db.VarChar(500)
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   @@map("feature_flags")
 }
@@ -366,18 +476,19 @@ model SystemSetting {
 }
 
 model AdminUser {
-  id           String          @id @default(uuid()) @db.Uuid
-  email        String          @unique @db.VarChar(255)
-  passwordHash String          @map("password_hash")
-  displayName  String          @map("display_name") @db.VarChar(120)
-  active       Boolean         @default(true)
-  lastLoginAt  DateTime?       @map("last_login_at")
-  createdAt    DateTime        @default(now()) @map("created_at")
-  updatedAt    DateTime        @updatedAt @map("updated_at")
-  createdVotes Vote[]
-  auditLogs    AdminAuditLog[]
+  id                  String           @id @default(uuid()) @db.Uuid
+  email               String           @unique @db.VarChar(255)
+  passwordHash        String           @map("password_hash")
+  displayName         String           @map("display_name") @db.VarChar(120)
+  active              Boolean          @default(true)
+  lastLoginAt         DateTime?        @map("last_login_at")
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+  createdVotes        Vote[]
+  auditLogs           AdminAuditLog[]
   reviewedSuggestions VoteSuggestion[]
-  createdAdCampaigns AdCampaign[]
+  createdAdCampaigns  AdCampaign[]
+  reviewedVoteReports VoteReport[]
 
   @@map("admin_users")
 }

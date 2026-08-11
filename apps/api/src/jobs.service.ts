@@ -13,7 +13,7 @@ export class JobsService implements OnModuleDestroy {
 
   async schedule(voteId: string, startsAt: Date, endsAt: Date) {
     const now = Date.now();
-    await Promise.all([
+    const jobs = [
       this.queue.add(
         'activate',
         { voteId },
@@ -36,7 +36,24 @@ export class JobsService implements OnModuleDestroy {
           removeOnComplete: 1000,
         },
       ),
-    ]);
+    ];
+    const reminderAt = endsAt.getTime() - 60 * 60 * 1_000;
+    if (reminderAt > now) {
+      jobs.push(
+        this.queue.add(
+          'ending',
+          { voteId },
+          {
+            jobId: `ending-${voteId}`,
+            delay: reminderAt - now,
+            attempts: 10,
+            backoff: { type: 'exponential', delay: 5_000 },
+            removeOnComplete: 1000,
+          },
+        ),
+      );
+    }
+    await Promise.all(jobs);
   }
 
   async onModuleDestroy() {

@@ -314,6 +314,25 @@ chosen network's signed server-to-server completion callback and update the
 Terms/Privacy text for that provider. MyVoice does not sell VOX, withdraw VOX,
 or use cryptocurrency in advertising rewards.
 
+### Participation, trust, and sharing
+
+Users can independently enable bot messages for new votes, the one-hour
+reminder, and published results. Delivery is performed by the BullMQ worker;
+the `user_notifications` unique keys make job retries safe. A weekly board is
+based on participation in completed votes during the last seven days, not on
+VOX balance. There are no streak counters or streak rewards.
+
+Vote editors may add localized neutral context and HTTPS source links. A user
+may privately report a vote once, while administrators resolve or dismiss the
+report without changing stored votes or completed results. Sharing a result is
+explicit: the API creates a random 30-day capability link and an Open Graph PNG
+card only after the user taps Share. Set `PUBLIC_APP_URL` to the public HTTPS
+origin used by Telegram previews (normally the same value as `WEB_APP_URL`).
+
+The profile VOX center reads the immutable ledger and groups earnings by
+registration, voting, referrals, and rewarded ads. It never calculates or
+stores a second balance.
+
 ## Feature flags and stages
 
 The single numeric configuration source is `packages/config/src/index.ts`.

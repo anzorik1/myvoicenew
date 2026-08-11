@@ -6,20 +6,26 @@ import { AdminAdsController, AdsController, AdsService } from './ads.controller'
 import { AuthController } from './telegram-auth';
 import { AdminAuthGuard, RedisRateLimitMiddleware, UserAuthGuard } from './common';
 import { JobsService } from './jobs.service';
+import { LeaderboardController } from './leaderboard.controller';
 import { MeController } from './me.controller';
+import { NotificationService } from './notification.service';
 import { PrismaService } from './prisma.service';
 import { SuggestionsController } from './suggestions.controller';
 import { SystemController } from './system.controller';
 import { VotesController } from './votes.controller';
 import { VotesService } from './votes.service';
 import { VoxService } from './vox.service';
+import { ShareActionsController, ShareController } from './share.controller';
 
 @Module({
   imports: [JwtModule.register({})],
   controllers: [
     AuthController,
     MeController,
+    LeaderboardController,
     VotesController,
+    ShareActionsController,
+    ShareController,
     SuggestionsController,
     SystemController,
     AdminAuthController,
@@ -32,6 +38,7 @@ import { VoxService } from './vox.service';
     VoxService,
     VotesService,
     JobsService,
+    NotificationService,
     UserAuthGuard,
     AdminAuthGuard,
     AdminLoginThrottleService,

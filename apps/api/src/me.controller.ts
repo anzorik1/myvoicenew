@@ -31,6 +31,17 @@ class ConsentDto {
   privacyVersion!: string;
 }
 
+class NotificationPreferencesDto {
+  @IsBoolean()
+  notificationsEnabled!: boolean;
+  @IsBoolean()
+  notifyNewVotes!: boolean;
+  @IsBoolean()
+  notifyVoteEnding!: boolean;
+  @IsBoolean()
+  notifyResults!: boolean;
+}
+
 @Controller('me')
 @UseGuards(UserAuthGuard)
 export class MeController {
@@ -60,7 +71,49 @@ export class MeController {
       activityRate: Math.round(Number(user.activityRate)),
       referralCount,
       referralProgramActive: Number(user.activityRate) >= RULES.REFERRAL_MIN_ACTIVITY_PERCENT,
+      notifications: {
+        enabled: user.notificationsEnabled,
+        newVotes: user.notifyNewVotes,
+        voteEnding: user.notifyVoteEnding,
+        results: user.notifyResults,
+      },
       consent: user.consents[0] ?? null,
+    };
+  }
+
+  @Get('notifications')
+  async notificationPreferences(@Req() req: AuthRequest) {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: req.userId },
+      select: {
+        notificationsEnabled: true,
+        notifyNewVotes: true,
+        notifyVoteEnding: true,
+        notifyResults: true,
+      },
+    });
+    return {
+      enabled: user.notificationsEnabled,
+      newVotes: user.notifyNewVotes,
+      voteEnding: user.notifyVoteEnding,
+      results: user.notifyResults,
+    };
+  }
+
+  @Patch('notifications')
+  async updateNotificationPreferences(
+    @Req() req: AuthRequest,
+    @Body() dto: NotificationPreferencesDto,
+  ) {
+    await this.prisma.user.update({
+      where: { id: req.userId },
+      data: dto,
+    });
+    return {
+      enabled: dto.notificationsEnabled,
+      newVotes: dto.notifyNewVotes,
+      voteEnding: dto.notifyVoteEnding,
+      results: dto.notifyResults,
     };
   }
 
@@ -182,12 +235,34 @@ export class MeController {
 
   @Get('vox-transactions')
   async transactions(@Req() req: AuthRequest, @Query('cursor') cursor?: string) {
-    const rows = await this.prisma.voxTransaction.findMany({
-      where: { userId: req.userId },
-      take: 21,
-      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-    });
-    return { items: rows.slice(0, 20), nextCursor: rows[20]?.id ?? null };
+    const [rows, groups] = await Promise.all([
+      this.prisma.voxTransaction.findMany({
+        where: { userId: req.userId },
+        take: 21,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      }),
+      this.prisma.voxTransaction.groupBy({
+        by: ['type'],
+        where: { userId: req.userId },
+        _sum: { amount: true },
+      }),
+    ]);
+    const total = (types: string[]) =>
+      groups
+        .filter((group) => types.includes(group.type))
+        .reduce((sum, group) => sum + (group._sum.amount ?? 0), 0);
+    return {
+      items: rows.slice(0, 20),
+      nextCursor: rows[20]?.id ?? null,
+      summary: {
+        registration: total(['SIGNUP_BONUS']),
+        voting: total(['VOTE_REWARD', 'EARLY_VOTE_BONUS', 'WINNER_REWARD', 'LOSER_REWARD']),
+        referrals: total(['REFERRAL_SIGNUP_REWARD', 'REFERRAL_VOTE_REWARD']),
+        ads: total(['AD_REWARD']),
+        adjustments: total(['ADMIN_ADJUSTMENT']),
+        totalEarned: groups.reduce((sum, group) => sum + Math.max(0, group._sum.amount ?? 0), 0),
+      },
+    };
   }
 }

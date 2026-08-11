@@ -4,11 +4,16 @@ import {
   AlertTriangle,
   ArrowLeft,
   BarChart3,
+  Bell,
+  BookOpen,
+  CalendarDays,
   Check,
   Clock3,
   Coins,
   Copy,
   ExternalLink,
+  Eye,
+  Flag,
   Gift,
   History as HistoryIcon,
   Home as HomeIcon,
@@ -20,6 +25,7 @@ import {
   RefreshCw,
   ShieldCheck,
   Send,
+  Share2,
   Trash2,
   Trophy,
   UserRound,
@@ -86,12 +92,15 @@ type Me = {
   referralCount: number;
   referralProgramActive: boolean;
   consent?: { termsVersion: string; privacyVersion: string };
+  notifications: { enabled: boolean; newVotes: boolean; voteEnding: boolean; results: boolean };
 };
 type Vote = {
   id: string;
   status: string;
   title: string;
   description: string;
+  context?: string;
+  sources?: { id: string; label: string; url: string }[];
   startsAt: string;
   endsAt: string;
   completedAt?: string;
@@ -104,6 +113,7 @@ type Vote = {
   participantCount?: number;
   resultStatus?: 'TIE' | 'OPTION_WIN';
   winnerOptionId?: string;
+  reported?: boolean;
 };
 type CurrentVotePayload = Vote | Vote[] | null | undefined;
 type Features = {
@@ -116,10 +126,55 @@ type AdminVote = {
   id: string;
   status: string;
   startsAt: string;
+  endsAt: string;
+  imageUrl?: string;
   participantCount: number;
   winnerReward: number;
   loserReward: number;
-  translations: Array<{ language: string; title: string }>;
+  translations: Array<{ language: string; title: string; description: string; context?: string }>;
+  options: Array<{
+    id: string;
+    position: number;
+    translations: Array<{ language: string; text: string }>;
+  }>;
+  sources: Array<{ id: string; language: string; label: string; url: string; position: number }>;
+};
+
+type WeeklyRank = {
+  rank: number | null;
+  firstName?: string;
+  username?: string;
+  participations: number;
+  activityRate?: number;
+  isMe: boolean;
+};
+
+type VoxLedger = {
+  items: Array<{
+    id: string;
+    type: string;
+    amount: number;
+    comment: string;
+    createdAt: string;
+  }>;
+  summary: {
+    registration: number;
+    voting: number;
+    referrals: number;
+    ads: number;
+    adjustments: number;
+    totalEarned: number;
+  };
+};
+
+type AdminVoteReport = {
+  id: string;
+  reason: string;
+  details?: string;
+  status: string;
+  createdAt: string;
+  user: { firstName: string; username?: string };
+  vote: { translations: Array<{ language: string; title: string }> };
 };
 type AdPlacement = {
   id: string;
@@ -601,9 +656,7 @@ function Home({ me, voteReward }: { me: Me; voteReward: number }) {
         </div>
         <div data-active={me.referralProgramActive}>
           <Activity size={16} />
-          <span>
-            {me.referralProgramActive ? t('home.referralOn') : t('home.referralOff')}
-          </span>
+          <span>{me.referralProgramActive ? t('home.referralOn') : t('home.referralOff')}</span>
         </div>
       </section>
 
@@ -705,6 +758,7 @@ function VotePage({ voteReward }: { voteReward: number }) {
   const queryClient = useQueryClient();
   const vote = useQuery({ queryKey: ['vote', id], queryFn: () => api<Vote>('/votes/' + id) });
   const [chosen, setChosen] = useState<{ id: string; text: string } | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
   const cast = useMutation({
     mutationFn: (optionId: string) =>
       api<{ reward: number }>('/votes/' + id + '/cast', {
@@ -717,6 +771,19 @@ function VotePage({ voteReward }: { voteReward: number }) {
       void queryClient.invalidateQueries({ queryKey: ['vote', id] });
       void queryClient.invalidateQueries({ queryKey: ['me'] });
       void queryClient.invalidateQueries({ queryKey: ['current-vote'] });
+    },
+  });
+  const report = useMutation({
+    mutationFn: (form: HTMLFormElement) => {
+      const data = new FormData(form);
+      return api(`/votes/${id}/reports`, {
+        method: 'POST',
+        body: JSON.stringify({ reason: data.get('reason'), details: data.get('details') }),
+      });
+    },
+    onSuccess: () => {
+      setReportOpen(false);
+      void queryClient.invalidateQueries({ queryKey: ['vote', id] });
     },
   });
   if (vote.isLoading)
@@ -755,17 +822,49 @@ function VotePage({ voteReward }: { voteReward: number }) {
           </span>
           <h1>{item.title}</h1>
           <p>{item.description}</p>
+          {item.context && (
+            <div className={styles.voteContext}>
+              <BookOpen size={18} />
+              <div>
+                <strong>{t('vote.context')}</strong>
+                <p>{item.context}</p>
+              </div>
+            </div>
+          )}
           <div className={styles.arenaDetailFooter}>
             <small>{t('vote.ends', { date: dateTime(item.endsAt, i18n.language) })}</small>
             <span>
               <Gift size={17} />
-              {voteReward > 0
-                ? t('vote.rewardHint', { amount: voteReward })
-                : t('home.voxReward')}
+              {voteReward > 0 ? t('vote.rewardHint', { amount: voteReward }) : t('home.voxReward')}
             </span>
           </div>
         </div>
       </section>
+
+      {Boolean(item.sources?.length) && (
+        <section className={styles.voteSources}>
+          <div className={styles.arenaSectionTitle}>
+            <span>{t('vote.sources')}</span>
+            <small>{t('vote.sourcesHint')}</small>
+          </div>
+          {item.sources?.map((source) => (
+            <a key={source.id} href={source.url} target="_blank" rel="noreferrer">
+              <BookOpen size={17} />
+              <span>{source.label}</span>
+              <ExternalLink size={15} />
+            </a>
+          ))}
+        </section>
+      )}
+
+      <button
+        className={styles.reportVoteButton}
+        disabled={item.reported}
+        onClick={() => setReportOpen(true)}
+      >
+        <Flag size={16} />
+        {item.reported ? t('vote.reported') : t('vote.report')}
+      </button>
 
       <section className={styles.arenaChoicePanel}>
         <div className={styles.arenaSectionTitle}>
@@ -832,6 +931,46 @@ function VotePage({ voteReward }: { voteReward: number }) {
               {t('vote.cancel')}
             </button>
           </div>
+        </div>
+      )}
+
+      {reportOpen && (
+        <div
+          className={styles.modalBackdrop}
+          role="presentation"
+          onClick={() => setReportOpen(false)}
+        >
+          <form
+            className={styles.modal}
+            onSubmit={(event) => {
+              event.preventDefault();
+              report.mutate(event.currentTarget);
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <span className={styles.arenaConfirmIcon}>
+              <Flag />
+            </span>
+            <h2>{t('vote.reportTitle')}</h2>
+            <p>{t('vote.reportHint')}</p>
+            <label className={styles.field}>
+              <span>{t('vote.reportReason')}</span>
+              <select name="reason" defaultValue="MISLEADING">
+                <option value="MISLEADING">{t('vote.reportMisleading')}</option>
+                <option value="BIASED">{t('vote.reportBiased')}</option>
+                <option value="OFFENSIVE">{t('vote.reportOffensive')}</option>
+                <option value="OTHER">{t('vote.reportOther')}</option>
+              </select>
+            </label>
+            <textarea name="details" maxLength={1000} placeholder={t('vote.reportDetails')} />
+            <button className={styles.arenaPrimary} disabled={report.isPending}>
+              {report.isPending ? t('common.loading') : t('vote.reportSend')}
+            </button>
+            <button type="button" className={styles.secondary} onClick={() => setReportOpen(false)}>
+              {t('vote.cancel')}
+            </button>
+            {report.error && <ErrorState error={report.error} />}
+          </form>
         </div>
       )}
     </div>
@@ -923,6 +1062,14 @@ function ResultPage() {
     queryKey: ['result', id],
     queryFn: () => api<Vote>(`/votes/${id}/result`),
   });
+  const share = useMutation({
+    mutationFn: () => api<{ url: string }>(`/votes/${id}/share`, { method: 'POST' }),
+    onSuccess: ({ url }) => {
+      const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(t('vote.shareText'))}`;
+      if (window.Telegram?.WebApp) window.Telegram.WebApp.openTelegramLink(shareUrl);
+      else window.open(shareUrl, '_blank');
+    },
+  });
   if (!result.data)
     return (
       <div className={styles.page}>
@@ -971,6 +1118,15 @@ function ResultPage() {
           </strong>
         </div>
       </div>
+      <button
+        className={styles.resultShareButton}
+        onClick={() => share.mutate()}
+        disabled={share.isPending}
+      >
+        <Share2 size={18} />
+        {share.isPending ? t('common.loading') : t('vote.shareResult')}
+      </button>
+      {share.error && <ErrorState error={share.error} />}
     </div>
   );
 }
@@ -1061,6 +1217,11 @@ function RatingPage({ me }: { me: Me }) {
         '/me/activity',
       ),
   });
+  const leaderboard = useQuery({
+    queryKey: ['leaderboard-weekly'],
+    queryFn: () =>
+      api<{ items: WeeklyRank[]; me: WeeklyRank; periodStart: string }>('/leaderboard/weekly'),
+  });
   const data = activity.data ?? {
     rate: me.activityRate,
     participated: me.participatedVotes,
@@ -1093,6 +1254,38 @@ function RatingPage({ me }: { me: Me }) {
           <span>{t('rating.missed')}</span>
         </div>
       </div>
+      <section className={styles.weeklyBoard}>
+        <div className={styles.weeklyBoardHeader}>
+          <div>
+            <small>{t('rating.weeklyEyebrow')}</small>
+            <h2>{t('rating.weeklyTitle')}</h2>
+          </div>
+          <Trophy />
+        </div>
+        {leaderboard.data?.me.rank ? (
+          <div className={styles.myWeeklyRank}>
+            <span>{t('rating.yourPlace')}</span>
+            <strong>#{leaderboard.data.me.rank}</strong>
+            <small>{t('rating.weeklyVotes', { count: leaderboard.data.me.participations })}</small>
+          </div>
+        ) : (
+          <p className={styles.weeklyEmpty}>{t('rating.weeklyEmpty')}</p>
+        )}
+        <div className={styles.weeklyList}>
+          {leaderboard.data?.items.slice(0, 20).map((row) => (
+            <div key={`${row.rank}-${row.username ?? row.firstName}`} data-me={row.isMe}>
+              <b>{row.rank}</b>
+              <span>
+                <strong>{row.firstName}</strong>
+                <small>{row.username ? `@${row.username}` : t('rating.member')}</small>
+              </span>
+              <em>{row.participations}</em>
+            </div>
+          ))}
+        </div>
+        {leaderboard.isLoading && <div className={styles.skeleton} />}
+        {leaderboard.error && <ErrorState error={leaderboard.error} />}
+      </section>
     </div>
   );
 }
@@ -1108,6 +1301,34 @@ function ProfilePage({ me }: { me: Me }) {
       void client.invalidateQueries({ queryKey: ['me'] });
     },
   });
+  const notificationPreferences = useQuery({
+    queryKey: ['notification-preferences'],
+    queryFn: () => api<Me['notifications']>('/me/notifications'),
+  });
+  const vox = useQuery({
+    queryKey: ['vox-center'],
+    queryFn: () => api<VoxLedger>('/me/vox-transactions'),
+  });
+  const updateNotifications = useMutation({
+    mutationFn: (next: Me['notifications']) =>
+      api('/me/notifications', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          notificationsEnabled: next.enabled,
+          notifyNewVotes: next.newVotes,
+          notifyVoteEnding: next.voteEnding,
+          notifyResults: next.results,
+        }),
+      }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ['notification-preferences'] });
+      void client.invalidateQueries({ queryKey: ['me'] });
+    },
+  });
+  const preferences = notificationPreferences.data ?? me.notifications;
+  const toggle = (key: keyof Me['notifications']) => {
+    updateNotifications.mutate({ ...preferences, [key]: !preferences[key] });
+  };
   return (
     <div className={`${styles.page} ${styles.stack}`}>
       <div className={styles.profileHero}>
@@ -1162,6 +1383,77 @@ function ProfilePage({ me }: { me: Me }) {
           <option value="ru">{t('profile.russian')}</option>
         </select>
       </label>
+      <section className={styles.profileControlCenter}>
+        <div className={styles.profileSectionTitle}>
+          <span>
+            <Bell size={19} />
+            {t('profile.notifications')}
+          </span>
+          <small>{t('profile.notificationsHint')}</small>
+        </div>
+        {(
+          [
+            ['enabled', 'profile.notificationsAll'],
+            ['newVotes', 'profile.notificationsNew'],
+            ['voteEnding', 'profile.notificationsEnding'],
+            ['results', 'profile.notificationsResults'],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            className={styles.preferenceRow}
+            role="switch"
+            aria-checked={preferences[key]}
+            disabled={updateNotifications.isPending || (key !== 'enabled' && !preferences.enabled)}
+            onClick={() => toggle(key)}
+          >
+            <span>{t(label)}</span>
+            <i data-active={preferences[key]}>
+              <b />
+            </i>
+          </button>
+        ))}
+      </section>
+      <section className={styles.voxCenter}>
+        <div className={styles.profileSectionTitle}>
+          <span>
+            <Coins size={19} />
+            {t('profile.voxCenter')}
+          </span>
+          <small>{t('profile.voxCenterHint')}</small>
+        </div>
+        <div className={styles.voxBreakdown}>
+          {(
+            [
+              ['voting', 'profile.voxVoting'],
+              ['referrals', 'profile.voxReferrals'],
+              ['ads', 'profile.voxAds'],
+              ['registration', 'profile.voxRegistration'],
+            ] as const
+          ).map(([key, label]) => (
+            <div key={key}>
+              <span>{t(label)}</span>
+              <strong>+{vox.data?.summary[key] ?? 0}</strong>
+            </div>
+          ))}
+        </div>
+        <div className={styles.voxTimeline}>
+          {vox.data?.items.slice(0, 6).map((transaction) => (
+            <div key={transaction.id}>
+              <span>
+                <strong>{transaction.type.replaceAll('_', ' ')}</strong>
+                <small>{dateTime(transaction.createdAt, i18n.language)}</small>
+              </span>
+              <b data-positive={transaction.amount >= 0}>
+                {transaction.amount >= 0 ? '+' : ''}
+                {transaction.amount}
+              </b>
+            </div>
+          ))}
+          {!vox.isLoading && !vox.data?.items.length && <p>{t('profile.voxEmpty')}</p>}
+        </div>
+      </section>
       <div className={styles.card}>
         <strong>{t('profile.documents')}</strong>
         <span>
@@ -1425,7 +1717,7 @@ function AdminApp() {
 
 function AdminDashboard() {
   const [tab, setTab] = useState<
-    'metrics' | 'users' | 'votes' | 'ads' | 'suggestions' | 'security'
+    'metrics' | 'users' | 'votes' | 'ads' | 'suggestions' | 'reports' | 'security'
   >('metrics');
   const metrics = useQuery({
     queryKey: ['admin-metrics'],
@@ -1443,6 +1735,10 @@ function AdminDashboard() {
     queryKey: ['admin-ads'],
     queryFn: () => api<AdminAd[]>('/admin/ads', {}, true),
   });
+  const reports = useQuery({
+    queryKey: ['admin-reports'],
+    queryFn: () => api<AdminVoteReport[]>('/admin/reports?status=PENDING', {}, true),
+  });
   const labels: Record<string, string> = {
     totalUsers: 'Registered users',
     active1d: 'Active · 24h',
@@ -1459,11 +1755,13 @@ function AdminDashboard() {
     <div className={styles.admin}>
       <aside>
         <h1>MyVoice</h1>
-        {(['metrics', 'users', 'votes', 'ads', 'suggestions', 'security'] as const).map((value) => (
-          <button data-active={tab === value} onClick={() => setTab(value)} key={value}>
-            {value}
-          </button>
-        ))}
+        {(['metrics', 'users', 'votes', 'ads', 'suggestions', 'reports', 'security'] as const).map(
+          (value) => (
+            <button data-active={tab === value} onClick={() => setTab(value)} key={value}>
+              {value}
+            </button>
+          ),
+        )}
       </aside>
       <main>
         <header>
@@ -1483,6 +1781,7 @@ function AdminDashboard() {
         {tab === 'users' && <AdminUsersManager />}
         {tab === 'votes' && (
           <>
+            <AdminContentCalendar votes={votes.data ?? []} />
             <VoteComposer onSaved={() => void votes.refetch()} />
             <div className={`${styles.adminTable} ${styles.adminVoteTable}`}>
               {votes.data?.map((vote) => (
@@ -1491,6 +1790,12 @@ function AdminDashboard() {
               {!votes.data?.length && <div className={styles.adminEmpty}>No votes yet.</div>}
             </div>
           </>
+        )}
+        {tab === 'reports' && (
+          <AdminReportsPanel
+            reports={reports.data ?? []}
+            onChanged={() => void reports.refetch()}
+          />
         )}
         {tab === 'ads' && <AdManager ads={ads.data ?? []} onChanged={() => void ads.refetch()} />}
         {tab === 'suggestions' && (
@@ -1755,8 +2060,160 @@ function VoxManagerDialog({
   );
 }
 
+function AdminContentCalendar({ votes }: { votes: AdminVote[] }) {
+  const days = new Map<string, AdminVote[]>();
+  [...votes]
+    .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())
+    .forEach((vote) => {
+      const key = new Date(vote.startsAt).toLocaleDateString('en', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+      });
+      days.set(key, [...(days.get(key) ?? []), vote]);
+    });
+  return (
+    <section className={styles.contentCalendar}>
+      <header>
+        <span>
+          <CalendarDays /> Content calendar
+        </span>
+        <small>{votes.length} planned and published votes</small>
+      </header>
+      <div>
+        {[...days.entries()].slice(0, 8).map(([day, items]) => (
+          <article key={day}>
+            <strong>{day}</strong>
+            {items.map((vote) => (
+              <span key={vote.id} data-status={vote.status}>
+                <time>
+                  {new Date(vote.startsAt).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </time>
+                {vote.translations.find((row) => row.language === 'en')?.title ?? 'Untitled'}
+                <em>{vote.status}</em>
+              </span>
+            ))}
+          </article>
+        ))}
+        {!days.size && <p className={styles.adminEmpty}>The content calendar is empty.</p>}
+      </div>
+    </section>
+  );
+}
+
+function AdminReportsPanel({
+  reports,
+  onChanged,
+}: {
+  reports: AdminVoteReport[];
+  onChanged: () => void;
+}) {
+  const [pending, setPending] = useState<string | null>(null);
+  const decide = async (id: string, decision: 'resolve' | 'dismiss') => {
+    setPending(id);
+    try {
+      await api(`/admin/reports/${id}/${decision}`, { method: 'POST' }, true);
+      onChanged();
+    } finally {
+      setPending(null);
+    }
+  };
+  return (
+    <section className={styles.adminReports}>
+      <header>
+        <div>
+          <small>TRUST & SAFETY</small>
+          <h2>Vote reports</h2>
+          <p>Review participant feedback without changing stored votes or completed results.</p>
+        </div>
+        <Flag />
+      </header>
+      {reports.map((report) => (
+        <article key={report.id}>
+          <div>
+            <small>
+              {report.reason.replaceAll('_', ' ')} · {dateTime(report.createdAt, 'en')}
+            </small>
+            <strong>
+              {report.vote.translations.find((row) => row.language === 'en')?.title ?? 'Vote'}
+            </strong>
+            <p>{report.details || 'No additional details.'}</p>
+            <span>
+              From {report.user.firstName}
+              {report.user.username ? ` · @${report.user.username}` : ''}
+            </span>
+          </div>
+          <div>
+            <button
+              disabled={pending === report.id}
+              onClick={() => void decide(report.id, 'dismiss')}
+            >
+              Dismiss
+            </button>
+            <button
+              disabled={pending === report.id}
+              onClick={() => void decide(report.id, 'resolve')}
+            >
+              Resolve
+            </button>
+          </div>
+        </article>
+      ))}
+      {!reports.length && <div className={styles.adminEmpty}>No pending reports.</div>}
+    </section>
+  );
+}
+
+function AdminVotePreview({ vote, onClose }: { vote: AdminVote; onClose: () => void }) {
+  const translation =
+    vote.translations.find((row) => row.language === 'en') ?? vote.translations[0];
+  return createPortal(
+    <div
+      className={styles.adminDialogBackdrop}
+      onMouseDown={(event) => event.target === event.currentTarget && onClose()}
+    >
+      <section
+        className={`${styles.adminDialog} ${styles.adminVotePreview}`}
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className={styles.adminPreviewPhone}>
+          <small>VOICE ARENA · PREVIEW</small>
+          <h2>{translation?.title}</h2>
+          <p>{translation?.description}</p>
+          {translation?.context && (
+            <aside>
+              <BookOpen />
+              {translation.context}
+            </aside>
+          )}
+          {vote.options.map((option) => (
+            <button key={option.id} type="button">
+              <b>{option.position === 1 ? 'A' : 'B'}</b>
+              {option.translations.find((row) => row.language === 'en')?.text}
+            </button>
+          ))}
+          {vote.sources.length > 0 && (
+            <footer>
+              {vote.sources.filter((source) => source.language === 'en').length} sources attached
+            </footer>
+          )}
+        </div>
+        <button className={styles.secondary} onClick={onClose}>
+          Close preview
+        </button>
+      </section>
+    </div>,
+    document.body,
+  );
+}
+
 function AdminVoteRow({ vote, onDeleted }: { vote: AdminVote; onDeleted: () => Promise<unknown> }) {
   const [confirming, setConfirming] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
   const title =
@@ -1785,6 +2242,14 @@ function AdminVoteRow({ vote, onDeleted }: { vote: AdminVote; onDeleted: () => P
       </span>
       <em>{vote.status}</em>
       <strong>{vote.participantCount} votes</strong>
+      <button
+        className={styles.previewVoteButton}
+        title="Preview vote"
+        onClick={() => setPreviewing(true)}
+      >
+        <Eye size={16} />
+        Preview
+      </button>
       <button
         className={styles.deleteVoteButton}
         title="Delete vote"
@@ -1841,6 +2306,7 @@ function AdminVoteRow({ vote, onDeleted }: { vote: AdminVote; onDeleted: () => P
           </div>,
           document.body,
         )}
+      {previewing && <AdminVotePreview vote={vote} onClose={() => setPreviewing(false)} />}
     </div>
   );
 }
@@ -2244,6 +2710,23 @@ function SecurityPanel() {
 function VoteComposer({ onSaved }: { onSaved: () => void }) {
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState('');
+  const [preview, setPreview] = useState({
+    title: '',
+    description: '',
+    one: '',
+    two: '',
+    context: '',
+  });
+  const syncPreview = (event: FormEvent<HTMLFormElement>) => {
+    const data = new FormData(event.currentTarget);
+    setPreview({
+      title: String(data.get('titleEn') ?? ''),
+      description: String(data.get('descriptionEn') ?? ''),
+      context: String(data.get('contextEn') ?? ''),
+      one: String(data.get('oneEn') ?? ''),
+      two: String(data.get('twoEn') ?? ''),
+    });
+  };
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
@@ -2262,13 +2745,31 @@ function VoteComposer({ onSaved }: { onSaved: () => void }) {
                 language: 'en',
                 title: data.get('titleEn'),
                 description: data.get('descriptionEn'),
+                context: data.get('contextEn'),
               },
               {
                 language: 'ru',
                 title: data.get('titleRu'),
                 description: data.get('descriptionRu'),
+                context: data.get('contextRu'),
               },
             ],
+            sources: [
+              {
+                language: 'en',
+                label: data.get('sourceLabelEn'),
+                url: data.get('sourceUrlEn'),
+                position: 1,
+              },
+              {
+                language: 'ru',
+                label: data.get('sourceLabelRu'),
+                url: data.get('sourceUrlRu'),
+                position: 1,
+              },
+            ].filter(
+              (source) => String(source.label ?? '').trim() && String(source.url ?? '').trim(),
+            ),
             options: [
               {
                 position: 1,
@@ -2304,7 +2805,7 @@ function VoteComposer({ onSaved }: { onSaved: () => void }) {
       </button>
       {message && <span>{message}</span>}
       {open && (
-        <form className={styles.form} onSubmit={save}>
+        <form className={styles.form} onSubmit={save} onInput={syncPreview}>
           <div className={styles.twoCols}>
             <label>
               Starts (local)
@@ -2357,6 +2858,24 @@ function VoteComposer({ onSaved }: { onSaved: () => void }) {
             English description
             <textarea name="descriptionEn" required minLength={10} maxLength={3000} />
           </label>
+          <label>
+            English context (optional)
+            <textarea
+              name="contextEn"
+              maxLength={3000}
+              placeholder="Neutral background needed to make an informed choice"
+            />
+          </label>
+          <div className={styles.twoCols}>
+            <label>
+              Source label (EN)
+              <input name="sourceLabelEn" maxLength={160} placeholder="Official report" />
+            </label>
+            <label>
+              Source URL (EN)
+              <input type="url" name="sourceUrlEn" maxLength={2000} placeholder="https://…" />
+            </label>
+          </div>
           <div className={styles.twoCols}>
             <label>
               Option 1<input name="oneEn" required maxLength={160} />
@@ -2373,6 +2892,24 @@ function VoteComposer({ onSaved }: { onSaved: () => void }) {
             Русское описание
             <textarea name="descriptionRu" required minLength={10} maxLength={3000} />
           </label>
+          <label>
+            Контекст на русском (необязательно)
+            <textarea
+              name="contextRu"
+              maxLength={3000}
+              placeholder="Нейтральная справка для осознанного выбора"
+            />
+          </label>
+          <div className={styles.twoCols}>
+            <label>
+              Название источника (RU)
+              <input name="sourceLabelRu" maxLength={160} placeholder="Официальный отчёт" />
+            </label>
+            <label>
+              Ссылка на источник (RU)
+              <input type="url" name="sourceUrlRu" maxLength={2000} placeholder="https://…" />
+            </label>
+          </div>
           <div className={styles.twoCols}>
             <label>
               Вариант 1<input name="oneRu" required maxLength={160} />
@@ -2381,6 +2918,30 @@ function VoteComposer({ onSaved }: { onSaved: () => void }) {
               Вариант 2<input name="twoRu" required maxLength={160} />
             </label>
           </div>
+          <section className={styles.liveVotePreview}>
+            <header>
+              <Eye /> Live Mini App preview
+            </header>
+            <small>VOICE ARENA</small>
+            <h3>{preview.title || 'Your question will appear here'}</h3>
+            <p>
+              {preview.description || 'The full description is shown before a participant chooses.'}
+            </p>
+            {preview.context && (
+              <aside>
+                <BookOpen />
+                {preview.context}
+              </aside>
+            )}
+            <button type="button">
+              <b>A</b>
+              {preview.one || 'First option'}
+            </button>
+            <button type="button">
+              <b>B</b>
+              {preview.two || 'Second option'}
+            </button>
+          </section>
           <button className={styles.primary}>Create and schedule</button>
         </form>
       )}
@@ -2423,9 +2984,7 @@ function UserApp() {
         SIGNUP_REWARD?: number;
         BASE_VOTE_REWARD?: number;
         REFERRAL_MIN_ACTIVITY_PERCENT?: number;
-      }>(
-        '/system/public-settings',
-      ),
+      }>('/system/public-settings'),
   });
   const featureData = features.data ?? {
     suggestions: false,

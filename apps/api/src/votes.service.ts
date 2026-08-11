@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, VoteReportReason } from '@prisma/client';
 import { RULES } from '@myvoice/config';
 import { PrismaService } from './prisma.service';
 import { VoxService } from './vox.service';
@@ -27,17 +27,23 @@ export class VotesService {
       where: { id: voteId, deletedAt: null },
       include: {
         translations: true,
+        sources: { orderBy: { position: 'asc' } },
         options: { orderBy: { position: 'asc' }, include: { translations: true } },
         userVotes: {
           where: { userId },
           take: 1,
           include: { transactions: { select: { amount: true } } },
         },
+        reports: { where: { userId }, take: 1, select: { id: true, status: true } },
       },
     });
     if (!vote) throw new NotFoundException('Vote not found');
     const translation = localized(vote.translations, language);
     const own = vote.userVotes[0];
+    const localizedSources = vote.sources.filter((source) => source.language === language);
+    const sources = localizedSources.length
+      ? localizedSources
+      : vote.sources.filter((source) => source.language === 'en');
     const canShow = includeResult && vote.status === 'COMPLETED';
     const total = vote.participantCount;
     const raw = vote.options.map((option) => ({
@@ -51,6 +57,8 @@ export class VotesService {
       status: vote.status,
       title: translation?.title ?? '',
       description: translation?.description ?? '',
+      context: translation?.context ?? null,
+      sources: sources.map(({ id, label, url }) => ({ id, label, url })),
       startsAt: vote.startsAt,
       endsAt: vote.endsAt,
       completedAt: vote.completedAt,
@@ -65,6 +73,7 @@ export class VotesService {
       selectedOptionId: own?.optionId ?? null,
       rewardState: own?.rewardState ?? null,
       userReward: own?.transactions.reduce((sum, transaction) => sum + transaction.amount, 0) ?? 0,
+      reported: Boolean(vote.reports[0]),
       ...(canShow
         ? {
             participantCount: total,
@@ -74,6 +83,19 @@ export class VotesService {
           }
         : {}),
     };
+  }
+
+  async report(userId: string, voteId: string, reason: VoteReportReason, details?: string) {
+    const vote = await this.prisma.vote.findUnique({ where: { id: voteId, deletedAt: null } });
+    if (!vote || vote.status === 'DRAFT') throw new NotFoundException('Published vote not found');
+    const existing = await this.prisma.voteReport.findUnique({
+      where: { userId_voteId: { userId, voteId } },
+    });
+    if (existing) return { reported: true, alreadyReported: true, status: existing.status };
+    const report = await this.prisma.voteReport.create({
+      data: { userId, voteId, reason, details: details?.trim() || null },
+    });
+    return { reported: true, alreadyReported: false, status: report.status };
   }
 
   async current(userId: string, language: string) {
@@ -123,7 +145,13 @@ export class VotesService {
       .$transaction(
         async (tx) => {
           const lockedVotes = await tx.$queryRaw<
-            Array<{ id: string; status: string; starts_at: Date; ends_at: Date; early_reward_count: number }>
+            Array<{
+              id: string;
+              status: string;
+              starts_at: Date;
+              ends_at: Date;
+              early_reward_count: number;
+            }>
           >`
             SELECT id, status, starts_at, ends_at, early_reward_count
             FROM votes WHERE id = ${voteId}::uuid AND deleted_at IS NULL FOR UPDATE
@@ -321,7 +349,8 @@ export class VotesService {
         const participants = new Set(userVotes.map((item) => item.userId));
         for (const user of eligibleUsers) {
           const eligible = user.eligibleVotesCount + 1;
-          const participated = user.completedVotesParticipated + (participants.has(user.id) ? 1 : 0);
+          const participated =
+            user.completedVotesParticipated + (participants.has(user.id) ? 1 : 0);
           const activity = eligible ? Math.min(100, (participated / eligible) * 100) : 100;
           await tx.user.update({
             where: { id: user.id },
