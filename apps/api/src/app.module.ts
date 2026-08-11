@@ -8,6 +8,7 @@ import { AdminAuthGuard, RedisRateLimitMiddleware, UserAuthGuard } from './commo
 import { JobsService } from './jobs.service';
 import { LeaderboardController } from './leaderboard.controller';
 import { MeController } from './me.controller';
+import { AdminMediaController, MediaController } from './media.controller';
 import { NotificationService } from './notification.service';
 import { PrismaService } from './prisma.service';
 import { SuggestionsController } from './suggestions.controller';
@@ -22,6 +23,8 @@ import { ShareActionsController, ShareController } from './share.controller';
   controllers: [
     AuthController,
     MeController,
+    MediaController,
+    AdminMediaController,
     LeaderboardController,
     VotesController,
     ShareActionsController,

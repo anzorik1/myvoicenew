@@ -17,6 +17,7 @@ import {
   Gift,
   History as HistoryIcon,
   Home as HomeIcon,
+  ImagePlus,
   Languages,
   Lightbulb,
   Megaphone,
@@ -2316,16 +2317,41 @@ function AdManager({ ads, onChanged }: { ads: AdminAd[]; onChanged: () => void }
   const [type, setType] = useState<'BANNER' | 'REWARDED'>('BANNER');
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
+  const [imagePreview, setImagePreview] = useState('');
+  const [imageName, setImageName] = useState('');
+  useEffect(
+    () => () => {
+      if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview);
+    },
+    [imagePreview],
+  );
   const optional = (value: FormDataEntryValue | null) => {
     const text = String(value ?? '').trim();
     return text || undefined;
   };
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const form = event.currentTarget;
     setSaving(true);
     setMessage('');
-    const data = new FormData(event.currentTarget);
+    const data = new FormData(form);
     try {
+      let imageUrl = optional(data.get('imageUrl'));
+      const imageFile = data.get('imageFile');
+      if (imageFile instanceof File && imageFile.size > 0) {
+        if (imageFile.size > 5 * 1024 * 1024) throw new Error('Image must be 5 MB or smaller.');
+        const upload = new FormData();
+        upload.append('image', imageFile);
+        const uploaded = await api<{ url: string }>(
+          '/admin/media/images',
+          {
+            method: 'POST',
+            body: upload,
+          },
+          true,
+        );
+        imageUrl = uploaded.url;
+      }
       await api(
         '/admin/ads',
         {
@@ -2336,7 +2362,7 @@ function AdManager({ ads, onChanged }: { ads: AdminAd[]; onChanged: () => void }
             endsAt: optional(data.get('endsAt'))
               ? new Date(String(data.get('endsAt'))).toISOString()
               : undefined,
-            imageUrl: optional(data.get('imageUrl')),
+            imageUrl,
             mediaUrl: optional(data.get('mediaUrl')),
             targetUrl: optional(data.get('targetUrl')),
             rewardVox: type === 'REWARDED' ? Number(data.get('rewardVox')) : 0,
@@ -2362,6 +2388,9 @@ function AdManager({ ads, onChanged }: { ads: AdminAd[]; onChanged: () => void }
       );
       setMessage('Campaign created as draft. Activate it when ready.');
       setOpen(false);
+      form.reset();
+      setImagePreview('');
+      setImageName('');
       onChanged();
     } catch (reason) {
       setMessage(reason instanceof Error ? reason.message : String(reason));
@@ -2408,10 +2437,59 @@ function AdManager({ ads, onChanged }: { ads: AdminAd[]; onChanged: () => void }
               <input type="datetime-local" name="endsAt" />
             </label>
           </div>
-          <label>
-            Card image URL (HTTPS)
-            <input type="url" name="imageUrl" placeholder="https://…/banner.jpg" />
-          </label>
+          <section className={styles.adArtworkUpload}>
+            <div className={styles.adArtworkHeading}>
+              <div>
+                <small>CAMPAIGN ARTWORK</small>
+                <strong>Upload a banner image</strong>
+              </div>
+              <span>Recommended · 16:7</span>
+            </div>
+            <label
+              className={styles.adArtworkStage}
+              data-filled={Boolean(imagePreview)}
+              style={imagePreview ? { backgroundImage: `url("${imagePreview}")` } : undefined}
+            >
+              <input
+                type="file"
+                name="imageFile"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) return;
+                  if (file.size > 5 * 1024 * 1024) {
+                    event.target.value = '';
+                    setMessage('Image must be 5 MB or smaller.');
+                    return;
+                  }
+                  setMessage('');
+                  setImageName(file.name);
+                  setImagePreview(URL.createObjectURL(file));
+                }}
+              />
+              <span className={styles.adArtworkPrompt}>
+                <ImagePlus />
+                <strong>{imageName || 'Choose a photo'}</strong>
+                <small>JPEG, PNG or WebP · up to 5 MB</small>
+              </span>
+              {imagePreview && <i>Tap to replace</i>}
+            </label>
+            <p>The server optimizes the image and removes hidden metadata automatically.</p>
+            <details className={styles.adUrlFallback}>
+              <summary>Use an existing HTTPS image instead</summary>
+              <label>
+                Image URL
+                <input
+                  type="url"
+                  name="imageUrl"
+                  placeholder="https://…/banner.jpg"
+                  onChange={(event) => {
+                    if (!imageName) setImagePreview(event.target.value.trim());
+                  }}
+                />
+              </label>
+            </details>
+          </section>
           {type === 'BANNER' ? (
             <label>
               Destination URL (HTTPS)

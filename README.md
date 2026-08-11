@@ -299,10 +299,13 @@ record. Removing more VOX than the current balance is rejected.
 
 ### Advertising assets and reward limits
 
-The MVP administrator form accepts HTTPS URLs for banner images, destination
-pages, and MP4/WebM video assets; it does not upload files to the application
-server. Store production media in trusted object storage/CDN and use only URLs
-you are authorized to publish. For a rewarded campaign, the administrator sets
+The administrator may upload a JPEG, PNG, or WebP banner directly (maximum
+5 MB and 40 megapixels). The API removes metadata, rotates it correctly,
+resizes it to fit within 1600 × 1600, converts it to WebP, and stores it in the
+persistent `myvoice_uploads` Docker volume. An existing HTTPS image URL remains
+available as a fallback. Destination pages and MP4/WebM video assets still use
+HTTPS URLs. For multi-server deployment, replace the local volume with trusted
+object storage/CDN. Use only media you are authorized to publish. For a rewarded campaign, the administrator sets
 the VOX amount, minimum watch time, and how many times one user may receive the
 reward per UTC day. Campaigns are created as drafts and are invisible until
 explicitly activated.

@@ -39,11 +39,12 @@ export const hasAdminToken = () => Boolean(adminToken);
 
 export async function api<T>(path: string, options: RequestInit = {}, admin = false): Promise<T> {
   const token = admin ? adminToken : accessToken;
+  const formData = options.body instanceof FormData;
   const response = await fetch(`${base}${path}`, {
     ...options,
     credentials: 'include',
     headers: {
-      'Content-Type': 'application/json',
+      ...(formData ? {} : { 'Content-Type': 'application/json' }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },

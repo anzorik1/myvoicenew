@@ -8,11 +8,11 @@ services:
       POSTGRES_USER: myvoice
       POSTGRES_PASSWORD: myvoice
     ports:
-      - "127.0.0.1:5432:5432"
+      - '127.0.0.1:5432:5432'
     volumes:
       - myvoice_postgres:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U myvoice -d myvoice"]
+      test: ['CMD-SHELL', 'pg_isready -U myvoice -d myvoice']
       interval: 5s
       timeout: 3s
       retries: 20
@@ -22,11 +22,11 @@ services:
     restart: unless-stopped
     command: redis-server --appendonly yes
     ports:
-      - "127.0.0.1:6379:6379"
+      - '127.0.0.1:6379:6379'
     volumes:
       - myvoice_redis:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
       timeout: 3s
       retries: 20
@@ -43,7 +43,7 @@ services:
 
   seed:
     build: .
-    profiles: ["seed"]
+    profiles: ['seed']
     env_file: .env
     environment:
       DATABASE_URL: postgresql://myvoice:myvoice@postgres:5432/myvoice?schema=public
@@ -59,8 +59,11 @@ services:
     environment:
       DATABASE_URL: postgresql://myvoice:myvoice@postgres:5432/myvoice?schema=public
       REDIS_URL: redis://redis:6379
+      UPLOAD_DIR: /app/uploads
     ports:
-      - "127.0.0.1:3000:3000"
+      - '127.0.0.1:3000:3000'
+    volumes:
+      - myvoice_uploads:/app/uploads
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -90,7 +93,7 @@ services:
     env_file: .env
     command: pnpm --filter @myvoice/web exec vite preview --host 0.0.0.0 --port 5173
     ports:
-      - "127.0.0.1:5173:5173"
+      - '127.0.0.1:5173:5173'
     volumes:
       - ./apps/web/vite.config.ts:/app/apps/web/vite.config.ts:ro
     depends_on:
@@ -100,10 +103,10 @@ services:
     image: caddy:2-alpine
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8080:8080"
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
+      - '127.0.0.1:8080:8080'
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - myvoice_caddy_data:/data
@@ -115,7 +118,7 @@ services:
   tunnel:
     image: cloudflare/cloudflared:latest
     restart: unless-stopped
-    profiles: ["tunnel"]
+    profiles: ['tunnel']
     command: tunnel --no-autoupdate --url http://gateway:8080
     depends_on:
       - gateway
@@ -123,7 +126,7 @@ services:
   bot:
     build: .
     restart: unless-stopped
-    profiles: ["telegram"]
+    profiles: ['telegram']
     env_file: .env
     environment:
       REDIS_URL: redis://redis:6379
@@ -137,3 +140,4 @@ volumes:
   myvoice_redis:
   myvoice_caddy_data:
   myvoice_caddy_config:
+  myvoice_uploads:

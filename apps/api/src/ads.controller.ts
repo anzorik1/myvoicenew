@@ -25,6 +25,7 @@ import {
   IsString,
   IsUrl,
   Length,
+  Matches,
   Max,
   Min,
   ValidateNested,
@@ -62,7 +63,7 @@ export class AdCampaignInputDto {
   endsAt?: string;
 
   @IsOptional()
-  @IsUrl({ protocols: ['https'], require_protocol: true })
+  @Matches(/^(https:\/\/[^\s]+|\/api\/media\/[a-f0-9]{48}\.webp)$/)
   imageUrl?: string;
 
   @IsOptional()
