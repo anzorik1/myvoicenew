@@ -76,6 +76,9 @@ Copy-Item .env.example .env
 Set at least:
 
 - `TELEGRAM_BOT_TOKEN`: token issued by BotFather.
+- `TELEGRAM_CHANNEL_URL`: optional public link to the official channel, for
+  example `https://t.me/myvoice_channel`. When set, the bot displays a channel
+  button. `TELEGRAM_CHANNEL_ID` is reserved for automatic channel publishing.
 - `WEB_APP_URL`: public HTTPS Mini App URL.
 - `VITE_BOT_USERNAME`: bot username without `@`.
 - `SESSION_PEPPER`: long random value used when hashing user sessions.

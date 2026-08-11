@@ -83,6 +83,8 @@ export class NotificationService {
           }
           if (record.status === 'SENT' || record.lastError?.startsWith('PERMANENT:')) return 'skip';
           try {
+            const route = kind === 'VOTE_RESULT' ? `/results/${voteId}` : `/votes/${voteId}`;
+            const targetUrl = new URL(route, webAppUrl).toString();
             const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
               method: 'POST',
               headers: { 'content-type': 'application/json' },
@@ -90,7 +92,7 @@ export class NotificationService {
                 chat_id: user.telegramId.toString(),
                 text: copy[language][kind](translation?.title ?? 'MyVoice'),
                 reply_markup: {
-                  inline_keyboard: [[{ text: copy[language].button, web_app: { url: webAppUrl } }]],
+                  inline_keyboard: [[{ text: copy[language].button, web_app: { url: targetUrl } }]],
                 },
               }),
             });
