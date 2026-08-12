@@ -246,6 +246,11 @@ const dateTime = (value: string, language: string) =>
     new Date(value),
   );
 
+const localDateTimeInput = (date: Date) => {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+};
+
 export const activeVoteFrom = (payload: CurrentVotePayload) => {
   const candidates = Array.isArray(payload) ? payload : payload ? [payload] : [];
   return candidates.find((vote) => vote?.status === 'ACTIVE') ?? null;
@@ -2319,6 +2324,8 @@ function AdManager({ ads, onChanged }: { ads: AdminAd[]; onChanged: () => void }
   const [saving, setSaving] = useState(false);
   const [imagePreview, setImagePreview] = useState('');
   const [imageName, setImageName] = useState('');
+  const defaultStartsAt = localDateTimeInput(new Date());
+  const defaultEndsAt = localDateTimeInput(new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000));
   useEffect(
     () => () => {
       if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview);
@@ -2335,6 +2342,8 @@ function AdManager({ ads, onChanged }: { ads: AdminAd[]; onChanged: () => void }
     setSaving(true);
     setMessage('');
     const data = new FormData(form);
+    const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+    const publish = submitter?.value === 'publish';
     try {
       let imageUrl = optional(data.get('imageUrl'));
       const imageFile = data.get('imageFile');
@@ -2352,7 +2361,7 @@ function AdManager({ ads, onChanged }: { ads: AdminAd[]; onChanged: () => void }
         );
         imageUrl = uploaded.url;
       }
-      await api(
+      const campaign = await api<{ id: string }>(
         '/admin/ads',
         {
           method: 'POST',
@@ -2386,7 +2395,14 @@ function AdManager({ ads, onChanged }: { ads: AdminAd[]; onChanged: () => void }
         },
         true,
       );
-      setMessage('Campaign created as draft. Activate it when ready.');
+      if (publish) {
+        await api(`/admin/ads/${campaign.id}/activate`, { method: 'POST' }, true);
+      }
+      setMessage(
+        publish
+          ? 'Campaign published. It will appear during the selected display period.'
+          : 'Draft saved. Publish it when you are ready.',
+      );
       setOpen(false);
       form.reset();
       setImagePreview('');
@@ -2430,12 +2446,26 @@ function AdManager({ ads, onChanged }: { ads: AdminAd[]; onChanged: () => void }
           <div className={styles.twoCols}>
             <label>
               Starts (local)
-              <input type="datetime-local" name="startsAt" required />
+              <input
+                type="datetime-local"
+                name="startsAt"
+                defaultValue={defaultStartsAt}
+                required
+              />
             </label>
             <label>
               Ends (optional)
-              <input type="datetime-local" name="endsAt" />
+              <input type="datetime-local" name="endsAt" defaultValue={defaultEndsAt} />
             </label>
+          </div>
+          <div className={styles.adScheduleHint}>
+            <Clock3 />
+            <div>
+              <strong>Display period</strong>
+              <span>
+                Times use your current local timezone. The suggested period is seven days.
+              </span>
+            </div>
           </div>
           <section className={styles.adArtworkUpload}>
             <div className={styles.adArtworkHeading}>
@@ -2585,9 +2615,14 @@ function AdManager({ ads, onChanged }: { ads: AdminAd[]; onChanged: () => void }
               />
             </label>
           </div>
-          <button className={styles.primary} disabled={saving}>
-            {saving ? 'Creating…' : 'Create draft'}
-          </button>
+          <div className={styles.adPublishActions}>
+            <button className={styles.secondary} name="intent" value="draft" disabled={saving}>
+              Save as draft
+            </button>
+            <button className={styles.primary} name="intent" value="publish" disabled={saving}>
+              {saving ? 'Publishing…' : 'Create and publish'}
+            </button>
+          </div>
         </form>
       )}
       <div className={styles.adAdminGrid}>
@@ -2604,6 +2639,19 @@ function AdminAdCard({ ad, onChanged }: { ad: AdminAd; onChanged: () => void }) 
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const translation = ad.translations.find((item) => item.language === 'en') ?? ad.translations[0];
+  const now = Date.now();
+  const startsAt = new Date(ad.startsAt).getTime();
+  const endsAt = ad.endsAt ? new Date(ad.endsAt).getTime() : null;
+  const expired = endsAt !== null && endsAt <= now;
+  const scheduled = ad.status === 'ACTIVE' && startsAt > now;
+  const live = ad.status === 'ACTIVE' && startsAt <= now && !expired;
+  const displayStatus = expired
+    ? 'EXPIRED'
+    : scheduled
+      ? 'SCHEDULED'
+      : live
+        ? 'LIVE NOW'
+        : ad.status;
   const action = async (name: 'activate' | 'pause' | 'delete') => {
     if (
       name === 'delete' &&
@@ -2632,12 +2680,33 @@ function AdminAdCard({ ad, onChanged }: { ad: AdminAd; onChanged: () => void }) 
         style={ad.imageUrl ? { backgroundImage: `url("${ad.imageUrl}")` } : undefined}
       >
         <span>{ad.type === 'BANNER' ? <Megaphone /> : <Gift />}</span>
-        <em>{ad.status}</em>
+        <em data-state={live ? 'live' : expired ? 'expired' : scheduled ? 'scheduled' : 'idle'}>
+          {displayStatus}
+        </em>
       </div>
       <div className={styles.adminAdBody}>
         <small>{ad.type}</small>
         <h3>{translation?.title ?? 'Untitled campaign'}</h3>
         <p>{translation?.description}</p>
+        <div className={styles.adScheduleSummary} data-expired={expired}>
+          <Clock3 />
+          <div>
+            <span>
+              Starts <strong>{dateTime(ad.startsAt, 'en')}</strong>
+            </span>
+            <span>
+              Ends <strong>{ad.endsAt ? dateTime(ad.endsAt, 'en') : 'No end date'}</strong>
+            </span>
+          </div>
+        </div>
+        {ad.status === 'DRAFT' && !expired && (
+          <div className={styles.adStateNotice}>Drafts are not visible until published.</div>
+        )}
+        {expired && (
+          <div className={styles.adStateNotice} data-error="true">
+            This display period has ended. Create a campaign with a future end time.
+          </div>
+        )}
         <div className={styles.adMetrics}>
           <span>
             Views <strong>{ad.impressionCount}</strong>
@@ -2657,8 +2726,8 @@ function AdminAdCard({ ad, onChanged }: { ad: AdminAd; onChanged: () => void }) 
         {error && <span className={styles.errorText}>{error}</span>}
         <div className={styles.adminAdActions}>
           {ad.status !== 'ACTIVE' ? (
-            <button disabled={pending} onClick={() => void action('activate')}>
-              Activate
+            <button disabled={pending || expired} onClick={() => void action('activate')}>
+              Publish
             </button>
           ) : (
             <button disabled={pending} onClick={() => void action('pause')}>

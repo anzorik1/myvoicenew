@@ -202,4 +202,25 @@ describe('advertising rewards', () => {
       }),
     });
   });
+
+  test('an expired campaign cannot be published', async () => {
+    const expired = {
+      id: campaignId,
+      translations: [{ language: 'en' }, { language: 'ru' }],
+      endsAt: new Date('2020-01-01T00:00:00.000Z'),
+    };
+    const update = jest.fn();
+    const prisma = {
+      adCampaign: {
+        findUniqueOrThrow: jest.fn(async () => expired),
+        update,
+      },
+    };
+    const controller = new AdminAdsController(prisma as never);
+
+    await expect(
+      controller.activate({ adminId: userId } as AuthRequest, campaignId),
+    ).rejects.toThrow('Campaign has already ended');
+    expect(update).not.toHaveBeenCalled();
+  });
 });

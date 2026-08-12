@@ -485,6 +485,11 @@ export class AdminAdsController {
     });
     if (before.translations.length < 2)
       throw new BadRequestException('Translations are incomplete');
+    if (before.endsAt && before.endsAt <= new Date()) {
+      throw new BadRequestException(
+        'Campaign has already ended. Update the end time before publishing.',
+      );
+    }
     const after = await this.prisma.adCampaign.update({
       where: { id },
       data: { status: 'ACTIVE' },
@@ -524,6 +529,9 @@ export class AdminAdsController {
     const endsAt = dto.endsAt ? new Date(dto.endsAt) : null;
     if (!Number.isFinite(startsAt.getTime()) || (endsAt && endsAt <= startsAt)) {
       throw new BadRequestException('Invalid campaign date range');
+    }
+    if (endsAt && endsAt <= new Date()) {
+      throw new BadRequestException('Campaign end time must be in the future');
     }
     if (new Set(dto.translations.map((item) => item.language)).size !== 2) {
       throw new BadRequestException('English and Russian translations are required');
