@@ -77,8 +77,9 @@ Set at least:
 
 - `TELEGRAM_BOT_TOKEN`: token issued by BotFather.
 - `TELEGRAM_CHANNEL_URL`: optional public link to the official channel, for
-  example `https://t.me/myvoice_channel`. When set, the bot displays a channel
-  button. `TELEGRAM_CHANNEL_ID` is reserved for automatic channel publishing.
+  example `https://t.me/myvoiceTGC`. When set, the bot displays a channel
+  button. Set `TELEGRAM_CHANNEL_ID` to `@myvoiceTGC` for channel membership
+  tasks and automatic channel publishing.
 - `WEB_APP_URL`: public HTTPS Mini App URL.
 - `VITE_BOT_USERNAME`: bot username without `@`.
 - `SESSION_PEPPER`: long random value used when hashing user sessions.
@@ -255,6 +256,7 @@ Seed data contains:
 - the requested English/Russian active AI vote;
 - one completed localized vote;
 - disabled feature flags for 10k, 1m, 10m, and 100m account stages.
+- a paused English/Russian task for joining the official Telegram channel.
 
 ## API
 
@@ -282,6 +284,8 @@ POST   /ads/:id/click
 POST   /ads/:id/reward-sessions
 POST   /ads/reward-sessions/:id/heartbeat
 POST   /ads/reward-sessions/:id/claim
+GET    /tasks
+POST   /tasks/:id/verify
 GET    /system/features
 GET    /system/public-settings
 ```
@@ -320,6 +324,24 @@ chosen network's signed server-to-server completion callback and update the
 Terms/Privacy text for that provider. MyVoice does not sell VOX, withdraw VOX,
 or use cryptocurrency in advertising rewards.
 
+### Telegram channel subscription task
+
+The seed and migration create a one-time `+10 VOX` task for joining
+`@myvoiceTGC`. It is intentionally created with `PAUSED` status. Before changing
+it to `ACTIVE`, add the MyVoice bot as an administrator of the channel. Telegram
+only guarantees `getChatMember` checks for other users when the bot is an
+administrator. No broad permissions are required for membership checks.
+
+The API takes the Telegram user ID only from the verified MyVoice session, asks
+Telegram for that member's status, and records one `UserTaskCompletion` plus one
+immutable `TASK_REWARD` transaction. A PostgreSQL advisory lock, the unique
+`user_id + task_id` constraint, and the ledger idempotency key make concurrent
+repeat checks safe. After the bot has been promoted, activate the task with:
+
+```sql
+UPDATE tasks SET status = 'ACTIVE' WHERE slug = 'subscribe-myvoice-channel';
+```
+
 ### Participation, trust, and sharing
 
 Users can independently enable bot messages for new votes, the one-hour
@@ -336,7 +358,7 @@ card only after the user taps Share. Set `PUBLIC_APP_URL` to the public HTTPS
 origin used by Telegram previews (normally the same value as `WEB_APP_URL`).
 
 The profile VOX center reads the immutable ledger and groups earnings by
-registration, voting, referrals, and rewarded ads. It never calculates or
+registration, voting, referrals, rewarded ads, and tasks. It never calculates or
 stores a second balance.
 
 ## Feature flags and stages
@@ -370,7 +392,8 @@ including signed Telegram data, idempotent rewards, duplicate votes, tie
 results, post-close rejection, private intermediate results, activity
 semantics, bounded early rewards, and idempotent completion. Additional tests
 cover idempotent advertising claims, concurrent repeated session starts, and
-atomic daily reward limits.
+atomic daily reward limits. Task tests cover one-time subscription rewards,
+rejection of non-members, and localized completion state.
 
 For a full integration smoke test:
 

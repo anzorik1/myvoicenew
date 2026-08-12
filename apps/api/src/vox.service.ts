@@ -17,6 +17,7 @@ export class VoxService {
       userVoteId?: string;
       referralId?: string;
       adRewardSessionId?: string;
+      taskCompletionId?: string;
     },
   ) {
     const existing = await tx.voxTransaction.findUnique({
@@ -44,6 +45,7 @@ export class VoxService {
         userVoteId: input.userVoteId,
         referralId: input.referralId,
         adRewardSessionId: input.adRewardSessionId,
+        taskCompletionId: input.taskCompletionId,
       },
     });
   }

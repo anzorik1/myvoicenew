@@ -17,6 +17,7 @@ import { VotesController } from './votes.controller';
 import { VotesService } from './votes.service';
 import { VoxService } from './vox.service';
 import { ShareActionsController, ShareController } from './share.controller';
+import { TasksController, TasksService } from './tasks.controller';
 
 @Module({
   imports: [JwtModule.register({})],
@@ -35,6 +36,7 @@ import { ShareActionsController, ShareController } from './share.controller';
     AdminController,
     AdsController,
     AdminAdsController,
+    TasksController,
   ],
   providers: [
     PrismaService,
@@ -47,6 +49,7 @@ import { ShareActionsController, ShareController } from './share.controller';
     AdminLoginThrottleService,
     TurnstileService,
     AdsService,
+    TasksService,
   ],
   exports: [PrismaService, VotesService],
 })

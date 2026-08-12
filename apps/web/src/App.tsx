@@ -163,6 +163,7 @@ type VoxLedger = {
     voting: number;
     referrals: number;
     ads: number;
+    tasks: number;
     adjustments: number;
     totalEarned: number;
   };
@@ -190,6 +191,17 @@ type AdPlacement = {
   minimumWatchSeconds: number;
   dailyRewardLimit: number;
   claimsToday: number;
+};
+type TaskItem = {
+  id: string;
+  type: 'TELEGRAM_CHANNEL_SUBSCRIPTION';
+  title: string;
+  description: string;
+  actionLabel: string;
+  rewardVox: number;
+  targetUrl: string;
+  completed: boolean;
+  completedAt?: string | null;
 };
 type RewardSession = {
   id: string;
@@ -605,7 +617,13 @@ function Home({ me, voteReward }: { me: Me; voteReward: number }) {
     queryFn: () => api<{ banners: AdPlacement[]; rewarded: AdPlacement[] }>('/ads/current'),
     retry: 1,
   });
+  const tasks = useQuery({
+    queryKey: ['tasks'],
+    queryFn: () => api<{ items: TaskItem[] }>('/tasks'),
+    retry: 1,
+  });
   const activeVote = activeVoteFrom(current.data);
+  const availableTask = tasks.data?.items.find((task) => !task.completed);
   const quickLinks = [
     {
       to: '/history',
@@ -739,6 +757,20 @@ function Home({ me, voteReward }: { me: Me; voteReward: number }) {
         </div>
       </section>
 
+      {availableTask && (
+        <NavLink to="/tasks" className={styles.homeTaskCard}>
+          <span className={styles.homeTaskIcon}>
+            <Send />
+          </span>
+          <div>
+            <small>{t('tasks.homeEyebrow')}</small>
+            <strong>{availableTask.title}</strong>
+            <span>{t('tasks.reward', { amount: availableTask.rewardVox })}</span>
+          </div>
+          <ExternalLink size={19} />
+        </NavLink>
+      )}
+
       {ads.data?.banners[0] && <BannerAdCard ad={ads.data.banners[0]} />}
 
       {Boolean(ads.data?.rewarded.length) && (
@@ -754,6 +786,103 @@ function Home({ me, voteReward }: { me: Me; voteReward: number }) {
           </div>
         </section>
       )}
+    </div>
+  );
+}
+
+function TasksPage() {
+  const { t } = useTranslation();
+  const client = useQueryClient();
+  const tasks = useQuery({
+    queryKey: ['tasks'],
+    queryFn: () => api<{ items: TaskItem[] }>('/tasks'),
+  });
+  const verify = useMutation({
+    mutationFn: (taskId: string) =>
+      api<{ completed: boolean; reward: number }>(`/tasks/${taskId}/verify`, {
+        method: 'POST',
+      }),
+    onSuccess: () => {
+      hapticSuccess();
+      void client.invalidateQueries({ queryKey: ['tasks'] });
+      void client.invalidateQueries({ queryKey: ['me'] });
+      void client.invalidateQueries({ queryKey: ['vox-center'] });
+    },
+  });
+  const openTask = (task: TaskItem) => {
+    if (window.Telegram?.WebApp) window.Telegram.WebApp.openTelegramLink(task.targetUrl);
+    else window.open(task.targetUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  return (
+    <div className={[styles.page, styles.stack, styles.tasksPage].join(' ')}>
+      <BackButton />
+      <section className={styles.tasksHero}>
+        <span className={styles.tasksHeroMark}>
+          <Gift />
+        </span>
+        <small>{t('tasks.eyebrow')}</small>
+        <h1>{t('tasks.title')}</h1>
+        <p>{t('tasks.subtitle')}</p>
+      </section>
+
+      {tasks.isLoading && <div className={styles.skeleton} />}
+      {tasks.error && <ErrorState error={tasks.error} />}
+      {!tasks.isLoading && !tasks.error && !tasks.data?.items.length && (
+        <div className={styles.tasksEmpty}>
+          <Check />
+          <strong>{t('tasks.empty')}</strong>
+          <span>{t('tasks.emptyHint')}</span>
+        </div>
+      )}
+
+      <section className={styles.taskList}>
+        {tasks.data?.items.map((task) => {
+          const checking = verify.isPending && verify.variables === task.id;
+          const error = verify.error && verify.variables === task.id ? verify.error : null;
+          return (
+            <article className={styles.taskCard} data-completed={task.completed} key={task.id}>
+              <header>
+                <span>{task.completed ? <Check /> : <Send />}</span>
+                <div>
+                  <small>{task.completed ? t('tasks.completed') : t('tasks.available')}</small>
+                  <strong>{t('tasks.reward', { amount: task.rewardVox })}</strong>
+                </div>
+              </header>
+              <h2>{task.title}</h2>
+              <p>{task.description}</p>
+              {task.completed ? (
+                <div className={styles.taskCompleted}>
+                  <ShieldCheck />
+                  <span>{t('tasks.rewarded', { amount: task.rewardVox })}</span>
+                </div>
+              ) : (
+                <div className={styles.taskActions}>
+                  <button type="button" onClick={() => openTask(task)}>
+                    {task.actionLabel}
+                    <ExternalLink />
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.taskVerify}
+                    disabled={checking}
+                    onClick={() => verify.mutate(task.id)}
+                  >
+                    {checking ? t('tasks.checking') : t('tasks.verify')}
+                  </button>
+                </div>
+              )}
+              {error && (
+                <p className={styles.taskError} role="alert">
+                  {error instanceof ApiError && error.status === 400
+                    ? t('tasks.notSubscribed')
+                    : error.message}
+                </p>
+              )}
+            </article>
+          );
+        })}
+      </section>
     </div>
   );
 }
@@ -1507,6 +1636,7 @@ function ProfilePage({ me }: { me: Me }) {
               ['voting', 'profile.voxVoting'],
               ['referrals', 'profile.voxReferrals'],
               ['ads', 'profile.voxAds'],
+              ['tasks', 'profile.voxTasks'],
               ['registration', 'profile.voxRegistration'],
             ] as const
           ).map(([key, label]) => (
@@ -3265,6 +3395,7 @@ function UserApp() {
           }
         />
         <Route path="/rating" element={<RatingPage me={me.data} />} />
+        <Route path="/tasks" element={<TasksPage />} />
         <Route path="/profile" element={<ProfilePage me={me.data} />} />
         {featureData.suggestions && (
           <Route path="/suggest" element={<SuggestPage me={me.data} />} />

@@ -80,6 +80,42 @@ async function main() {
       create: { key: 'BASE_VOTE_REWARD', value: RULES.BASE_VOTE_REWARD, public: true },
     }),
   ]);
+  await prisma.task.upsert({
+    where: { slug: 'subscribe-myvoice-channel' },
+    update: {
+      status: 'PAUSED',
+      rewardVox: RULES.TELEGRAM_CHANNEL_TASK_REWARD,
+      targetUrl: 'https://t.me/myvoiceTGC',
+      telegramChatId: '@myvoiceTGC',
+    },
+    create: {
+      id: '30000000-0000-4000-8000-000000000001',
+      slug: 'subscribe-myvoice-channel',
+      type: 'TELEGRAM_CHANNEL_SUBSCRIPTION',
+      status: 'PAUSED',
+      rewardVox: RULES.TELEGRAM_CHANNEL_TASK_REWARD,
+      targetUrl: 'https://t.me/myvoiceTGC',
+      telegramChatId: '@myvoiceTGC',
+      translations: {
+        create: [
+          {
+            language: 'en',
+            title: 'Join the MyVoice channel',
+            description:
+              'Follow project news, new votes and important updates in the official channel.',
+            actionLabel: 'Open channel',
+          },
+          {
+            language: 'ru',
+            title: 'Подпишитесь на канал MyVoice',
+            description:
+              'Следите за новостями проекта, новыми голосованиями и важными обновлениями в официальном канале.',
+            actionLabel: 'Открыть канал',
+          },
+        ],
+      },
+    },
+  });
 
   const users = [
     {
@@ -147,7 +183,7 @@ async function main() {
       create: {
         userId: data.id,
         type: 'SIGNUP_BONUS',
-          amount: RULES.SIGNUP_REWARD,
+        amount: RULES.SIGNUP_REWARD,
         balanceBefore: 0,
         balanceAfter: 50,
         idempotencyKey: `seed:signup:${data.id}`,
@@ -171,7 +207,7 @@ async function main() {
     create: {
       userId: IDS.user1,
       type: 'REFERRAL_SIGNUP_REWARD',
-        amount: RULES.REFERRAL_SIGNUP_REWARD,
+      amount: RULES.REFERRAL_SIGNUP_REWARD,
       balanceBefore: 50,
       balanceAfter: 55,
       referralId: referral.id,
@@ -213,11 +249,21 @@ async function main() {
         create: [
           {
             position: 1,
-            translations: { create: [{ language: 'en', text: 'Yes' }, { language: 'ru', text: 'Да' }] },
+            translations: {
+              create: [
+                { language: 'en', text: 'Yes' },
+                { language: 'ru', text: 'Да' },
+              ],
+            },
           },
           {
             position: 2,
-            translations: { create: [{ language: 'en', text: 'No' }, { language: 'ru', text: 'Нет' }] },
+            translations: {
+              create: [
+                { language: 'en', text: 'No' },
+                { language: 'ru', text: 'Нет' },
+              ],
+            },
           },
         ],
       },
@@ -256,12 +302,22 @@ async function main() {
           {
             position: 1,
             voteCount: 2,
-            translations: { create: [{ language: 'en', text: 'Yes' }, { language: 'ru', text: 'Да' }] },
+            translations: {
+              create: [
+                { language: 'en', text: 'Yes' },
+                { language: 'ru', text: 'Да' },
+              ],
+            },
           },
           {
             position: 2,
             voteCount: 0,
-            translations: { create: [{ language: 'en', text: 'No' }, { language: 'ru', text: 'Нет' }] },
+            translations: {
+              create: [
+                { language: 'en', text: 'No' },
+                { language: 'ru', text: 'Нет' },
+              ],
+            },
           },
         ],
       },

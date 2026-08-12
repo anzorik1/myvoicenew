@@ -38,6 +38,17 @@ enum VoxTransactionType {
   LOSER_REWARD
   ADMIN_ADJUSTMENT
   AD_REWARD
+  TASK_REWARD
+}
+
+enum TaskType {
+  TELEGRAM_CHANNEL_SUBSCRIPTION
+}
+
+enum TaskStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
 }
 
 enum SuggestionStatus {
@@ -85,34 +96,34 @@ enum VoteReportStatus {
 }
 
 model User {
-  id                         String             @id @default(uuid()) @db.Uuid
-  telegramId                 BigInt             @unique @map("telegram_id")
-  username                   String?            @db.VarChar(64)
-  firstName                  String             @map("first_name") @db.VarChar(128)
-  lastName                   String?            @map("last_name") @db.VarChar(128)
-  languageCode               String             @default("en") @map("language_code") @db.VarChar(8)
-  status                     UserStatus         @default(PENDING_CONSENT)
-  registeredAt               DateTime           @default(now()) @map("registered_at")
-  registrationCompletedAt    DateTime?          @map("registration_completed_at")
-  lastActivityAt             DateTime           @default(now()) @map("last_activity_at")
-  voxBalance                 Int                @default(0) @map("vox_balance")
-  ownVotesCount              Int                @default(0) @map("own_votes_count")
-  eligibleVotesCount         Int                @default(0) @map("eligible_votes_count")
-  completedVotesParticipated Int                @default(0) @map("completed_votes_participated")
-  activityRate               Decimal            @default(100) @map("activity_rate") @db.Decimal(5, 2)
-  referralCode               String             @unique @map("referral_code") @db.VarChar(20)
-  suggestionBlocked          Boolean            @default(false) @map("suggestion_blocked")
-  notificationsEnabled       Boolean            @default(true) @map("notifications_enabled")
-  notifyNewVotes             Boolean            @default(true) @map("notify_new_votes")
-  notifyVoteEnding           Boolean            @default(true) @map("notify_vote_ending")
-  notifyResults              Boolean            @default(true) @map("notify_results")
-  deletedAt                  DateTime?          @map("deleted_at")
-  createdAt                  DateTime           @default(now()) @map("created_at")
-  updatedAt                  DateTime           @updatedAt @map("updated_at")
+  id                         String               @id @default(uuid()) @db.Uuid
+  telegramId                 BigInt               @unique @map("telegram_id")
+  username                   String?              @db.VarChar(64)
+  firstName                  String               @map("first_name") @db.VarChar(128)
+  lastName                   String?              @map("last_name") @db.VarChar(128)
+  languageCode               String               @default("en") @map("language_code") @db.VarChar(8)
+  status                     UserStatus           @default(PENDING_CONSENT)
+  registeredAt               DateTime             @default(now()) @map("registered_at")
+  registrationCompletedAt    DateTime?            @map("registration_completed_at")
+  lastActivityAt             DateTime             @default(now()) @map("last_activity_at")
+  voxBalance                 Int                  @default(0) @map("vox_balance")
+  ownVotesCount              Int                  @default(0) @map("own_votes_count")
+  eligibleVotesCount         Int                  @default(0) @map("eligible_votes_count")
+  completedVotesParticipated Int                  @default(0) @map("completed_votes_participated")
+  activityRate               Decimal              @default(100) @map("activity_rate") @db.Decimal(5, 2)
+  referralCode               String               @unique @map("referral_code") @db.VarChar(20)
+  suggestionBlocked          Boolean              @default(false) @map("suggestion_blocked")
+  notificationsEnabled       Boolean              @default(true) @map("notifications_enabled")
+  notifyNewVotes             Boolean              @default(true) @map("notify_new_votes")
+  notifyVoteEnding           Boolean              @default(true) @map("notify_vote_ending")
+  notifyResults              Boolean              @default(true) @map("notify_results")
+  deletedAt                  DateTime?            @map("deleted_at")
+  createdAt                  DateTime             @default(now()) @map("created_at")
+  updatedAt                  DateTime             @updatedAt @map("updated_at")
   consents                   UserConsent[]
   sessions                   UserSession[]
-  referralAsInvitee          Referral?          @relation("Invitee")
-  referralsAsReferrer        Referral[]         @relation("Referrer")
+  referralAsInvitee          Referral?            @relation("Invitee")
+  referralsAsReferrer        Referral[]           @relation("Referrer")
   userVotes                  UserVote[]
   voxTransactions            VoxTransaction[]
   suggestions                VoteSuggestion[]
@@ -120,6 +131,7 @@ model User {
   notifications              UserNotification[]
   voteReports                VoteReport[]
   voteShares                 VoteShare[]
+  taskCompletions            UserTaskCompletion[]
 
   @@index([status, lastActivityAt])
   @@index([activityRate])
@@ -337,28 +349,75 @@ model UserVote {
 }
 
 model VoxTransaction {
-  id                String             @id @default(uuid()) @db.Uuid
-  userId            String             @map("user_id") @db.Uuid
+  id                String              @id @default(uuid()) @db.Uuid
+  userId            String              @map("user_id") @db.Uuid
   type              VoxTransactionType
   amount            Int
-  balanceBefore     Int                @map("balance_before")
-  balanceAfter      Int                @map("balance_after")
-  voteId            String?            @map("vote_id") @db.Uuid
-  userVoteId        String?            @map("user_vote_id") @db.Uuid
-  referralId        String?            @map("referral_id") @db.Uuid
-  adRewardSessionId String?            @unique @map("ad_reward_session_id") @db.Uuid
-  idempotencyKey    String             @unique @map("idempotency_key") @db.VarChar(160)
-  comment           String             @db.VarChar(500)
-  createdAt         DateTime           @default(now()) @map("created_at")
-  user              User               @relation(fields: [userId], references: [id], onDelete: Restrict)
-  vote              Vote?              @relation(fields: [voteId], references: [id], onDelete: Restrict)
-  userVote          UserVote?          @relation(fields: [userVoteId], references: [id], onDelete: Restrict)
-  referral          Referral?          @relation(fields: [referralId], references: [id], onDelete: Restrict)
-  adRewardSession   AdRewardSession?   @relation(fields: [adRewardSessionId], references: [id], onDelete: Restrict)
+  balanceBefore     Int                 @map("balance_before")
+  balanceAfter      Int                 @map("balance_after")
+  voteId            String?             @map("vote_id") @db.Uuid
+  userVoteId        String?             @map("user_vote_id") @db.Uuid
+  referralId        String?             @map("referral_id") @db.Uuid
+  adRewardSessionId String?             @unique @map("ad_reward_session_id") @db.Uuid
+  taskCompletionId  String?             @unique @map("task_completion_id") @db.Uuid
+  idempotencyKey    String              @unique @map("idempotency_key") @db.VarChar(160)
+  comment           String              @db.VarChar(500)
+  createdAt         DateTime            @default(now()) @map("created_at")
+  user              User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  vote              Vote?               @relation(fields: [voteId], references: [id], onDelete: Restrict)
+  userVote          UserVote?           @relation(fields: [userVoteId], references: [id], onDelete: Restrict)
+  referral          Referral?           @relation(fields: [referralId], references: [id], onDelete: Restrict)
+  adRewardSession   AdRewardSession?    @relation(fields: [adRewardSessionId], references: [id], onDelete: Restrict)
+  taskCompletion    UserTaskCompletion? @relation(fields: [taskCompletionId], references: [id], onDelete: Restrict)
 
   @@index([userId, createdAt(sort: Desc)])
   @@index([type, createdAt])
   @@map("vox_transactions")
+}
+
+model Task {
+  id             String               @id @default(uuid()) @db.Uuid
+  slug           String               @unique @db.VarChar(80)
+  type           TaskType
+  status         TaskStatus           @default(DRAFT)
+  rewardVox      Int                  @map("reward_vox")
+  targetUrl      String               @map("target_url") @db.VarChar(2000)
+  telegramChatId String?              @map("telegram_chat_id") @db.VarChar(100)
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
+  translations   TaskTranslation[]
+  completions    UserTaskCompletion[]
+
+  @@index([status, createdAt])
+  @@map("tasks")
+}
+
+model TaskTranslation {
+  id          String @id @default(uuid()) @db.Uuid
+  taskId      String @map("task_id") @db.Uuid
+  language    String @db.VarChar(8)
+  title       String @db.VarChar(160)
+  description String @db.VarChar(500)
+  actionLabel String @map("action_label") @db.VarChar(80)
+  task        Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, language])
+  @@map("task_translations")
+}
+
+model UserTaskCompletion {
+  id          String          @id @default(uuid()) @db.Uuid
+  userId      String          @map("user_id") @db.Uuid
+  taskId      String          @map("task_id") @db.Uuid
+  completedAt DateTime        @default(now()) @map("completed_at")
+  user        User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+  task        Task            @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  transaction VoxTransaction?
+
+  @@unique([userId, taskId])
+  @@index([taskId, completedAt(sort: Desc)])
+  @@index([userId, completedAt(sort: Desc)])
+  @@map("user_task_completions")
 }
 
 model AdCampaign {

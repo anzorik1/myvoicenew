@@ -149,6 +149,7 @@
     "voxVoting": "Voting",
     "voxReferrals": "Referrals",
     "voxAds": "Rewarded ads",
+    "voxTasks": "Tasks",
     "voxRegistration": "Registration",
     "voxEmpty": "No VOX operations yet."
   },
@@ -171,5 +172,20 @@
     "ready": "Viewing complete — reward ready",
     "claim": "Claim VOX",
     "claimed": "+{{amount}} VOX added"
+  },
+  "tasks": {
+    "homeEyebrow": "New task",
+    "eyebrow": "Earn with MyVoice",
+    "title": "Tasks for VOX",
+    "subtitle": "Complete useful project tasks and receive each reward once.",
+    "available": "Available",
+    "reward": "+{{amount}} VOX",
+    "verify": "Check subscription",
+    "checking": "Checking…",
+    "completed": "Completed",
+    "rewarded": "+{{amount}} VOX has been added to your balance",
+    "notSubscribed": "We could not find the subscription yet. Join the channel and check again.",
+    "empty": "All tasks completed",
+    "emptyHint": "New ways to earn VOX will appear here."
   }
 }
