@@ -1138,7 +1138,7 @@ function ResultPage() {
 }
 
 function ReferralsPage({ minimumActivity }: { minimumActivity: number }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const referrals = useQuery({
     queryKey: ['referrals'],
     queryFn: () =>
@@ -1148,6 +1148,15 @@ function ReferralsPage({ minimumActivity }: { minimumActivity: number }) {
         active: number;
         earned: number;
         programActive: boolean;
+        invitees: Array<{
+          firstName: string;
+          lastName?: string;
+          username?: string;
+          joinedAt: string;
+          registrationCompleted: boolean;
+          active: boolean;
+          votes: number;
+        }>;
       }>('/me/referrals'),
   });
   if (!referrals.data)
@@ -1210,6 +1219,69 @@ function ReferralsPage({ minimumActivity }: { minimumActivity: number }) {
         <Activity />
         {data.programActive ? t('referrals.programOn') : t('referrals.programOff')}
       </div>
+      <section className={styles.referralPeople}>
+        <header>
+          <div>
+            <small>{t('referrals.peopleEyebrow')}</small>
+            <h2>{t('referrals.peopleTitle')}</h2>
+          </div>
+          <span>{data.registered}</span>
+        </header>
+        {data.invitees.length ? (
+          <div className={styles.referralPeopleList}>
+            {data.invitees.map((person, index) => {
+              const fullName = [person.firstName, person.lastName].filter(Boolean).join(' ');
+              const initials = [person.firstName, person.lastName]
+                .filter(Boolean)
+                .map((part) => part!.slice(0, 1).toUpperCase())
+                .join('')
+                .slice(0, 2);
+              const state = !person.registrationCompleted
+                ? 'pending'
+                : person.active
+                  ? 'active'
+                  : 'inactive';
+              return (
+                <article key={`${person.joinedAt}-${person.username ?? index}`}>
+                  <span className={styles.referralPersonAvatar}>{initials}</span>
+                  <div className={styles.referralPersonIdentity}>
+                    <strong>{fullName}</strong>
+                    <span>
+                      {person.username ? `@${person.username}` : t('referrals.telegramMember')}
+                    </span>
+                    <small>
+                      {t('referrals.joined', {
+                        date: dateTime(person.joinedAt, i18n.language),
+                      })}
+                    </small>
+                  </div>
+                  <div className={styles.referralPersonActivity} data-state={state}>
+                    <span>
+                      {state === 'active'
+                        ? t('referrals.personActive')
+                        : state === 'pending'
+                          ? t('referrals.personPending')
+                          : t('referrals.personInactive')}
+                    </span>
+                    <small>{t('referrals.personVotes', { count: person.votes })}</small>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <div className={styles.referralPeopleEmpty}>
+            <UserRound />
+            <strong>{t('referrals.peopleEmpty')}</strong>
+            <span>{t('referrals.peopleEmptyHint')}</span>
+          </div>
+        )}
+        {data.registered > data.invitees.length && (
+          <p className={styles.referralPeopleLimit}>
+            {t('referrals.peopleLimit', { count: data.invitees.length })}
+          </p>
+        )}
+      </section>
     </div>
   );
 }

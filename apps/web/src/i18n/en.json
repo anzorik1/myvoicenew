@@ -103,7 +103,18 @@
     "earned": "VOX earned",
     "programOn": "Program active",
     "programOff": "Program paused — restore the required activity level",
-    "eyebrow": "More voices together"
+    "eyebrow": "More voices together",
+    "peopleEyebrow": "Your circle",
+    "peopleTitle": "Who joined through your link",
+    "telegramMember": "Telegram member",
+    "joined": "Joined: {{date}}",
+    "personActive": "Active",
+    "personInactive": "Inactive",
+    "personPending": "Finishing registration",
+    "personVotes": "Votes: {{count}}",
+    "peopleEmpty": "No one has joined yet",
+    "peopleEmptyHint": "Share your link with friends — new members will appear here.",
+    "peopleLimit": "Showing the latest {{count}} invited people"
   },
   "rating": {
     "title": "Activity rating",

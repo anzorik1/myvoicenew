@@ -207,7 +207,7 @@ export class MeController {
   @Get('referrals')
   async referrals(@Req() req: AuthRequest) {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: req.userId } });
-    const [registered, active, earned] = await Promise.all([
+    const [registered, active, earned, invitees] = await Promise.all([
       this.prisma.referral.count({ where: { referrerId: user.id } }),
       this.prisma.referral.count({
         where: {
@@ -222,7 +222,27 @@ export class MeController {
         },
         _sum: { amount: true },
       }),
+      this.prisma.referral.findMany({
+        where: { referrerId: user.id, invitee: { deletedAt: null } },
+        select: {
+          createdAt: true,
+          invitee: {
+            select: {
+              firstName: true,
+              lastName: true,
+              username: true,
+              status: true,
+              registrationCompletedAt: true,
+              lastActivityAt: true,
+              ownVotesCount: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+      }),
     ]);
+    const activeSince = Date.now() - 7 * 864e5;
     const bot = process.env.VITE_BOT_USERNAME ?? process.env.BOT_USERNAME ?? 'MyVoiceBot';
     return {
       link: `https://t.me/${bot}?start=ref_${user.referralCode}`,
@@ -230,6 +250,17 @@ export class MeController {
       active,
       earned: earned._sum.amount ?? 0,
       programActive: Number(user.activityRate) >= RULES.REFERRAL_MIN_ACTIVITY_PERCENT,
+      invitees: invitees.map((referral) => ({
+        firstName: referral.invitee.firstName,
+        lastName: referral.invitee.lastName,
+        username: referral.invitee.username,
+        joinedAt: referral.createdAt,
+        registrationCompleted: Boolean(referral.invitee.registrationCompletedAt),
+        active:
+          referral.invitee.status === 'ACTIVE' &&
+          referral.invitee.lastActivityAt.getTime() >= activeSince,
+        votes: referral.invitee.ownVotesCount,
+      })),
     };
   }
 

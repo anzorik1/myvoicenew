@@ -607,6 +607,172 @@
   color: #176844;
   background: #e9f8f1;
 }
+.referralPeople {
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--tg-theme-hint-color, #78908d) 14%, transparent);
+  border-radius: 24px;
+  background: var(--tg-theme-secondary-bg-color, #fff);
+  box-shadow: 0 12px 32px rgba(11, 47, 49, 0.07);
+}
+.referralPeople > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 19px 20px 15px;
+  border-bottom: 1px solid color-mix(in srgb, var(--tg-theme-hint-color, #78908d) 12%, transparent);
+  background:
+    radial-gradient(
+      circle at 90% 0,
+      color-mix(in srgb, var(--mv-teal) 14%, transparent),
+      transparent 45%
+    ),
+    var(--tg-theme-secondary-bg-color, #fff);
+}
+.referralPeople > header small {
+  color: var(--mv-teal);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.referralPeople > header h2 {
+  margin: 3px 0 0;
+  font-size: 19px;
+  letter-spacing: -0.025em;
+}
+.referralPeople > header > span {
+  min-width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 15px;
+  color: #075b54;
+  background: #baf5df;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 900;
+}
+.referralPeopleList {
+  position: relative;
+  padding: 5px 14px 8px;
+}
+.referralPeopleList::before {
+  content: '';
+  position: absolute;
+  top: 31px;
+  bottom: 31px;
+  left: 37px;
+  width: 2px;
+  background: linear-gradient(var(--mv-teal), color-mix(in srgb, var(--mv-blue) 24%, transparent));
+}
+.referralPeopleList article {
+  position: relative;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  min-height: 78px;
+  padding: 10px 5px;
+  border-bottom: 1px solid color-mix(in srgb, var(--tg-theme-hint-color, #78908d) 11%, transparent);
+}
+.referralPeopleList article:last-child {
+  border-bottom: 0;
+}
+.referralPersonAvatar {
+  position: relative;
+  z-index: 1;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 3px solid var(--tg-theme-secondary-bg-color, #fff);
+  border-radius: 17px;
+  color: #fff;
+  background: linear-gradient(145deg, #174c7c, #0b9a89);
+  font-size: 14px;
+  font-weight: 900;
+  box-shadow: 0 7px 17px rgba(10, 87, 91, 0.18);
+}
+.referralPersonIdentity {
+  min-width: 0;
+}
+.referralPersonIdentity strong,
+.referralPersonIdentity span,
+.referralPersonIdentity small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.referralPersonIdentity strong {
+  font-size: 14px;
+}
+.referralPersonIdentity span,
+.referralPersonIdentity small {
+  color: var(--tg-theme-hint-color, #6e7c79);
+  font-size: 10px;
+}
+.referralPersonIdentity span {
+  margin-top: 2px;
+  color: var(--mv-teal);
+  font-weight: 750;
+}
+.referralPersonIdentity small {
+  margin-top: 5px;
+}
+.referralPersonActivity {
+  display: grid;
+  justify-items: end;
+  gap: 5px;
+}
+.referralPersonActivity > span {
+  padding: 5px 7px;
+  border-radius: 999px;
+  color: #6d5361;
+  background: #f3edf0;
+  font-size: 8px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.referralPersonActivity[data-state='active'] > span {
+  color: #176844;
+  background: #e1f8ed;
+}
+.referralPersonActivity[data-state='pending'] > span {
+  color: #785319;
+  background: #fff2d9;
+}
+.referralPersonActivity small {
+  color: var(--tg-theme-hint-color, #6e7c79);
+  font-size: 9px;
+}
+.referralPeopleEmpty {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 34px 22px;
+  text-align: center;
+}
+.referralPeopleEmpty svg {
+  width: 42px;
+  height: 42px;
+  padding: 10px;
+  border-radius: 15px;
+  color: var(--mv-teal);
+  background: color-mix(in srgb, var(--mv-teal) 12%, transparent);
+}
+.referralPeopleEmpty span,
+.referralPeopleLimit {
+  color: var(--tg-theme-hint-color, #6e7c79);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.referralPeopleLimit {
+  margin: 0;
+  padding: 10px 16px;
+  text-align: center;
+  background: color-mix(in srgb, var(--tg-theme-bg-color, #eef7f5) 82%, transparent);
+}
 .profileHero {
   display: flex;
   align-items: center;
