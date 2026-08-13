@@ -292,6 +292,7 @@ export class MeController {
         referrals: total(['REFERRAL_SIGNUP_REWARD', 'REFERRAL_VOTE_REWARD']),
         ads: total(['AD_REWARD']),
         tasks: total(['TASK_REWARD']),
+        legacy: total(['TAP_REWARD']),
         adjustments: total(['ADMIN_ADJUSTMENT']),
         totalEarned: groups.reduce((sum, group) => sum + Math.max(0, group._sum.amount ?? 0), 0),
       },

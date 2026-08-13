@@ -165,6 +165,7 @@ type VoxLedger = {
     referrals: number;
     ads: number;
     tasks: number;
+    legacy: number;
     adjustments: number;
     totalEarned: number;
   };
@@ -1796,6 +1797,7 @@ function ProfilePage({ me }: { me: Me }) {
               ['referrals', 'profile.voxReferrals'],
               ['ads', 'profile.voxAds'],
               ['tasks', 'profile.voxTasks'],
+              ['legacy', 'profile.voxLegacy'],
               ['registration', 'profile.voxRegistration'],
             ] as const
           ).map(([key, label]) => (

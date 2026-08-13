@@ -39,6 +39,8 @@ enum VoxTransactionType {
   ADMIN_ADJUSTMENT
   AD_REWARD
   TASK_REWARD
+  /// Legacy immutable ledger value. The tapping feature stays removed.
+  TAP_REWARD
 }
 
 enum TaskType {
