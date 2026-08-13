@@ -64,6 +64,11 @@
       "how": "How it works",
       "future": "Where next"
     },
+    "process": {
+      "read": "Review",
+      "choose": "Choose",
+      "result": "See the result"
+    },
     "why": {
       "eyebrow": "The value of a voice",
       "title": "Your opinion becomes part of the bigger picture",

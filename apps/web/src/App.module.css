@@ -1555,6 +1555,52 @@
   object-fit: cover;
   object-position: center top;
 }
+.aboutProcess {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  padding: 26px 17px 42px;
+  background:
+    radial-gradient(circle at 20% 28%, rgba(132, 85, 231, 0.33), transparent 31%),
+    radial-gradient(circle at 82% 70%, rgba(38, 215, 185, 0.24), transparent 33%),
+    linear-gradient(150deg, #070a16, #0a2132 52%, #072b2d);
+}
+.aboutProcess > div {
+  min-width: 0;
+  min-height: 125px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 11px 5px;
+  border: 1px solid rgba(123, 232, 207, 0.18);
+  border-radius: 20px;
+  color: #eafffa;
+  background: rgba(255, 255, 255, 0.045);
+  box-shadow: inset 0 0 28px rgba(116, 83, 226, 0.08);
+  text-align: center;
+}
+.aboutProcess > div svg {
+  width: 38px;
+  height: 38px;
+  padding: 8px;
+  border-radius: 13px;
+  color: #83ead2;
+  background: rgba(111, 84, 221, 0.22);
+}
+.aboutProcess > div span {
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+.aboutProcess > svg {
+  width: 15px;
+  color: #7bdec9;
+}
 .aboutVisual > span {
   position: absolute;
   z-index: 1;

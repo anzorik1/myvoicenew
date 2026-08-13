@@ -818,7 +818,6 @@ function AboutPage() {
     },
     {
       key: 'how',
-      image: '/about/ecosystem.webp',
       tab: t('about.tabs.how'),
       eyebrow: t('about.how.eyebrow'),
       title: t('about.how.title'),
@@ -827,7 +826,7 @@ function AboutPage() {
     },
     {
       key: 'future',
-      image: '/about/action.webp',
+      image: '/about/ecosystem.webp',
       tab: t('about.tabs.future'),
       eyebrow: t('about.future.eyebrow'),
       title: t('about.future.title'),
@@ -891,12 +890,31 @@ function AboutPage() {
         {slides.map((slide, index) => (
           <article className={styles.aboutSlide} key={slide.key} data-index={index + 1}>
             <div className={styles.aboutVisual}>
-              <img
-                src={slide.image}
-                alt=""
-                loading={index === 0 ? 'eager' : 'lazy'}
-                fetchPriority={index === 0 ? 'high' : 'auto'}
-              />
+              {slide.image ? (
+                <img
+                  src={slide.image}
+                  alt=""
+                  loading={index === 0 ? 'eager' : 'lazy'}
+                  fetchPriority={index === 0 ? 'high' : 'auto'}
+                />
+              ) : (
+                <div className={styles.aboutProcess} aria-hidden>
+                  <div>
+                    <BookOpen />
+                    <span>{t('about.process.read')}</span>
+                  </div>
+                  <ChevronRight />
+                  <div>
+                    <VoteIcon />
+                    <span>{t('about.process.choose')}</span>
+                  </div>
+                  <ChevronRight />
+                  <div>
+                    <Trophy />
+                    <span>{t('about.process.result')}</span>
+                  </div>
+                </div>
+              )}
               <span>{t('about.stage', { current: index + 1, total: slides.length })}</span>
             </div>
             <div className={styles.aboutCopy}>
