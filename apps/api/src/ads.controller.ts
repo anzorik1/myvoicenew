@@ -33,6 +33,7 @@ import {
 import { AdminAuthGuard, AuthRequest, UserAuthGuard } from './common';
 import { PrismaService } from './prisma.service';
 import { VoxService } from './vox.service';
+import { acquireAdvisoryTransactionLock } from './database-locks';
 
 class AdTranslationDto {
   @IsIn(['en', 'ru'])
@@ -374,7 +375,7 @@ export class AdsService {
     rewardDay: Date,
   ) {
     const key = `ad:${userId}:${campaignId}:${rewardDay.toISOString().slice(0, 10)}`;
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))`;
+    await acquireAdvisoryTransactionLock(tx, key);
   }
 }
 

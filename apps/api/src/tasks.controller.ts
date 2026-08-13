@@ -12,6 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthRequest, UserAuthGuard } from './common';
+import { acquireAdvisoryTransactionLock } from './database-locks';
 import { PrismaService } from './prisma.service';
 import { VoxService } from './vox.service';
 
@@ -92,7 +93,7 @@ export class TasksService {
 
     return this.prisma.$transaction(
       async (tx) => {
-        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`task:${userId}:${taskId}`}, 0))`;
+        await acquireAdvisoryTransactionLock(tx, `task:${userId}:${taskId}`);
         let completion = await tx.userTaskCompletion.findUnique({
           where: { userId_taskId: { userId, taskId } },
           include: { transaction: true },
