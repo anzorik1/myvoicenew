@@ -83,7 +83,6 @@ async function main() {
   await prisma.task.upsert({
     where: { slug: 'subscribe-myvoice-channel' },
     update: {
-      status: 'PAUSED',
       rewardVox: RULES.TELEGRAM_CHANNEL_TASK_REWARD,
       targetUrl: 'https://t.me/myvoiceTGC',
       telegramChatId: '@myvoiceTGC',
