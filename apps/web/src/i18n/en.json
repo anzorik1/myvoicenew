@@ -56,36 +56,15 @@
     "eyebrow": "About the project",
     "title": "How MyVoice works",
     "tabsLabel": "About MyVoice sections",
-    "stage": "Stage {{current}} of {{total}}",
+    "imageAlt": "MyVoice overview, image {{current}} of {{total}}",
     "next": "Continue",
     "done": "You have seen it all",
     "tabs": {
-      "why": "Why",
-      "how": "How it works",
-      "future": "Where next"
-    },
-    "process": {
-      "read": "Review",
-      "choose": "Choose",
-      "result": "See the result"
-    },
-    "why": {
-      "eyebrow": "The value of a voice",
-      "title": "Your opinion becomes part of the bigger picture",
-      "body": "MyVoice brings community opinions together through clear votes. You choose one of two options, and your participation stays in your history.",
-      "note": "Voting, tasks, and useful activity earn VOX."
-    },
-    "how": {
-      "eyebrow": "A clear process",
-      "title": "Read the question, choose an option, see the final result",
-      "body": "You can review the description and sources before choosing. Live numbers stay hidden so other votes do not influence you. The result appears after closing.",
-      "note": "One account can cast one final, unchangeable vote."
-    },
-    "future": {
-      "eyebrow": "Development vision",
-      "title": "Collective decisions can reveal what people care about",
-      "body": "In the future, popular decisions may inspire initiatives and projects. New mechanics will launch step by step after technical and legal review.",
-      "note": "This screen presents a direction, not a promise of a specific project."
+      "voice": "Voice",
+      "vox": "VOX",
+      "ecosystem": "Ecosystem",
+      "impact": "Impact",
+      "future": "Future"
     }
   },
   "vote": {

@@ -804,37 +804,15 @@ function Home({ me, voteReward }: { me: Me; voteReward: number }) {
 }
 
 function AboutPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const slider = useRef<HTMLDivElement>(null);
   const [activeSlide, setActiveSlide] = useState(0);
-  const slides = [
-    {
-      key: 'why',
-      image: '/about/voice-value.webp',
-      tab: t('about.tabs.why'),
-      eyebrow: t('about.why.eyebrow'),
-      title: t('about.why.title'),
-      body: t('about.why.body'),
-      note: t('about.why.note'),
-    },
-    {
-      key: 'how',
-      tab: t('about.tabs.how'),
-      eyebrow: t('about.how.eyebrow'),
-      title: t('about.how.title'),
-      body: t('about.how.body'),
-      note: t('about.how.note'),
-    },
-    {
-      key: 'future',
-      image: '/about/ecosystem.webp',
-      tab: t('about.tabs.future'),
-      eyebrow: t('about.future.eyebrow'),
-      title: t('about.future.title'),
-      body: t('about.future.body'),
-      note: t('about.future.note'),
-    },
-  ];
+  const imageLanguage = i18n.resolvedLanguage?.startsWith('ru') ? 'ru' : 'en';
+  const slides = ['voice', 'vox', 'ecosystem', 'impact', 'future'].map((key, index) => ({
+    key,
+    image: `/about/${imageLanguage}-${index + 1}.webp`,
+    tab: t(`about.tabs.${key}`),
+  }));
   const openSlide = (index: number) => {
     const card = slider.current?.children.item(index) as HTMLElement | null;
     if (!card || !slider.current) return;
@@ -889,44 +867,21 @@ function AboutPage() {
         aria-live="polite"
       >
         {slides.map((slide, index) => (
-          <article className={styles.aboutSlide} key={slide.key} data-index={index + 1}>
-            <div className={styles.aboutVisual}>
-              {slide.image ? (
-                <img
-                  src={slide.image}
-                  alt=""
-                  loading={index === 0 ? 'eager' : 'lazy'}
-                  fetchPriority={index === 0 ? 'high' : 'auto'}
-                />
-              ) : (
-                <div className={styles.aboutProcess} aria-hidden>
-                  <div>
-                    <BookOpen />
-                    <span>{t('about.process.read')}</span>
-                  </div>
-                  <ChevronRight />
-                  <div>
-                    <VoteIcon />
-                    <span>{t('about.process.choose')}</span>
-                  </div>
-                  <ChevronRight />
-                  <div>
-                    <Trophy />
-                    <span>{t('about.process.result')}</span>
-                  </div>
-                </div>
-              )}
-              <span>{t('about.stage', { current: index + 1, total: slides.length })}</span>
-            </div>
-            <div className={styles.aboutCopy}>
-              <small>{slide.eyebrow}</small>
-              <h1>{slide.title}</h1>
-              <p>{slide.body}</p>
-              <div>
-                <ShieldCheck />
-                <span>{slide.note}</span>
-              </div>
-            </div>
+          <article
+            className={styles.aboutSlide}
+            key={slide.key}
+            aria-label={slide.tab}
+            data-index={index + 1}
+          >
+            <img
+              className={styles.aboutPoster}
+              src={slide.image}
+              alt={t('about.imageAlt', { current: index + 1, total: slides.length })}
+              width={900}
+              height={1350}
+              loading={index === 0 ? 'eager' : 'lazy'}
+              fetchPriority={index === 0 ? 'high' : 'auto'}
+            />
           </article>
         ))}
       </div>
