@@ -1,4 +1,7 @@
 FROM node:22-bookworm-slim AS build
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates openssl \
+  && rm -rf /var/lib/apt/lists/*
 RUN corepack enable
 WORKDIR /app
 ARG VITE_API_URL
@@ -11,6 +14,9 @@ RUN pnpm --filter @myvoice/api prisma:generate
 RUN pnpm -r build
 
 FROM node:22-bookworm-slim AS runtime
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates openssl \
+  && rm -rf /var/lib/apt/lists/*
 RUN corepack enable
 WORKDIR /app
 ENV NODE_ENV=production
