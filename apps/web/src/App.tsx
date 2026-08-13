@@ -8,6 +8,7 @@ import {
   BookOpen,
   CalendarDays,
   Check,
+  ChevronRight,
   Clock3,
   Coins,
   Copy,
@@ -664,6 +665,17 @@ function Home({ me, voteReward }: { me: Me; voteReward: number }) {
         </div>
       </header>
 
+      <NavLink to="/about" className={styles.aboutLauncher}>
+        <span>
+          <BookOpen />
+        </span>
+        <div>
+          <strong>{t('about.launcherTitle')}</strong>
+          <small>{t('about.launcherHint')}</small>
+        </div>
+        <ChevronRight />
+      </NavLink>
+
       <section className={styles.arenaStatusRail}>
         <div>
           <small>{t('home.activity')}</small>
@@ -786,6 +798,135 @@ function Home({ me, voteReward }: { me: Me; voteReward: number }) {
           </div>
         </section>
       )}
+    </div>
+  );
+}
+
+function AboutPage() {
+  const { t } = useTranslation();
+  const slider = useRef<HTMLDivElement>(null);
+  const [activeSlide, setActiveSlide] = useState(0);
+  const slides = [
+    {
+      key: 'why',
+      image: '/about/voice-value.webp',
+      tab: t('about.tabs.why'),
+      eyebrow: t('about.why.eyebrow'),
+      title: t('about.why.title'),
+      body: t('about.why.body'),
+      note: t('about.why.note'),
+    },
+    {
+      key: 'how',
+      image: '/about/ecosystem.webp',
+      tab: t('about.tabs.how'),
+      eyebrow: t('about.how.eyebrow'),
+      title: t('about.how.title'),
+      body: t('about.how.body'),
+      note: t('about.how.note'),
+    },
+    {
+      key: 'future',
+      image: '/about/action.webp',
+      tab: t('about.tabs.future'),
+      eyebrow: t('about.future.eyebrow'),
+      title: t('about.future.title'),
+      body: t('about.future.body'),
+      note: t('about.future.note'),
+    },
+  ];
+  const openSlide = (index: number) => {
+    const card = slider.current?.children.item(index) as HTMLElement | null;
+    if (!card || !slider.current) return;
+    slider.current.scrollTo({ left: card.offsetLeft, behavior: 'smooth' });
+    setActiveSlide(index);
+  };
+  const syncActiveSlide = () => {
+    const container = slider.current;
+    if (!container) return;
+    const cards = Array.from(container.children) as HTMLElement[];
+    const closest = cards.reduce(
+      (best, card, index) => {
+        const distance = Math.abs(card.offsetLeft - container.scrollLeft);
+        return distance < best.distance ? { index, distance } : best;
+      },
+      { index: 0, distance: Number.POSITIVE_INFINITY },
+    );
+    setActiveSlide(closest.index);
+  };
+
+  return (
+    <div className={[styles.page, styles.aboutPage].join(' ')}>
+      <header className={styles.aboutHeader}>
+        <BackButton />
+        <div>
+          <small>{t('about.eyebrow')}</small>
+          <strong>{t('about.title')}</strong>
+        </div>
+        <span>
+          {activeSlide + 1}/{slides.length}
+        </span>
+      </header>
+
+      <nav className={styles.aboutTabs} aria-label={t('about.tabsLabel')}>
+        {slides.map((slide, index) => (
+          <button
+            key={slide.key}
+            type="button"
+            data-active={index === activeSlide}
+            aria-current={index === activeSlide ? 'step' : undefined}
+            onClick={() => openSlide(index)}
+          >
+            {slide.tab}
+          </button>
+        ))}
+      </nav>
+
+      <div
+        className={styles.aboutSlider}
+        ref={slider}
+        onScroll={syncActiveSlide}
+        aria-live="polite"
+      >
+        {slides.map((slide, index) => (
+          <article className={styles.aboutSlide} key={slide.key} data-index={index + 1}>
+            <div className={styles.aboutVisual}>
+              <img
+                src={slide.image}
+                alt=""
+                loading={index === 0 ? 'eager' : 'lazy'}
+                fetchPriority={index === 0 ? 'high' : 'auto'}
+              />
+              <span>{t('about.stage', { current: index + 1, total: slides.length })}</span>
+            </div>
+            <div className={styles.aboutCopy}>
+              <small>{slide.eyebrow}</small>
+              <h1>{slide.title}</h1>
+              <p>{slide.body}</p>
+              <div>
+                <ShieldCheck />
+                <span>{slide.note}</span>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <footer className={styles.aboutControls}>
+        <div aria-hidden>
+          {slides.map((slide, index) => (
+            <i key={slide.key} data-active={index === activeSlide} />
+          ))}
+        </div>
+        <button
+          type="button"
+          disabled={activeSlide === slides.length - 1}
+          onClick={() => openSlide(Math.min(activeSlide + 1, slides.length - 1))}
+        >
+          {activeSlide === slides.length - 1 ? t('about.done') : t('about.next')}
+          {activeSlide < slides.length - 1 && <ChevronRight />}
+        </button>
+      </footer>
     </div>
   );
 }
@@ -3395,6 +3536,7 @@ function UserApp() {
           }
         />
         <Route path="/rating" element={<RatingPage me={me.data} />} />
+        <Route path="/about" element={<AboutPage />} />
         <Route path="/tasks" element={<TasksPage />} />
         <Route path="/profile" element={<ProfilePage me={me.data} />} />
         {featureData.suggestions && (
